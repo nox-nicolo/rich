@@ -26,11 +26,13 @@ class MilestoneTile extends StatelessWidget {
 
   String get _badge {
     switch (milestone.status) {
-      case MilestoneStatus.done:    return 'DONE';
-      case MilestoneStatus.dropped: return 'DROPPED';
+      case MilestoneStatus.done:
+        return 'DONE';
+      case MilestoneStatus.dropped:
+        return 'DROPPED';
       case MilestoneStatus.active:
         if (milestone.isOverdue) return 'OVERDUE';
-        if (milestone.isAtRisk)  return 'AT RISK';
+        if (milestone.isAtRisk) return 'AT RISK';
         return 'ON TRACK';
     }
   }
@@ -62,10 +64,7 @@ class MilestoneTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(
-            color: _accent.withValues(alpha: 0.3),
-            width: 0.5,
-          ),
+          border: Border.all(color: _accent.withValues(alpha: 0.3), width: 0.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,7 +80,10 @@ class MilestoneTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                Text(_badge, style: AppTypography.label.copyWith(color: _accent)),
+                Text(
+                  _badge,
+                  style: AppTypography.label.copyWith(color: _accent),
+                ),
               ],
             ),
             if (milestone.note != null && milestone.note!.isNotEmpty) ...[
@@ -92,6 +94,10 @@ class MilestoneTile extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+            ],
+            if (milestone.processSteps.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              _ProcessPreview(steps: milestone.processSteps),
             ],
             const SizedBox(height: AppSpacing.sm),
             ClipRRect(
@@ -107,14 +113,81 @@ class MilestoneTile extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('$pct%',
-                    style: AppTypography.mono.copyWith(fontSize: 11)),
-                Text(_dueLabel,
-                    style: AppTypography.caption),
+                Text('$pct%', style: AppTypography.mono.copyWith(fontSize: 11)),
+                Text(_dueLabel, style: AppTypography.caption),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProcessPreview extends StatelessWidget {
+  final List<String> steps;
+  const _ProcessPreview({required this.steps});
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = steps.take(3).toList();
+    final remaining = steps.length - visible.length;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVar.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'PROCESS',
+            style: AppTypography.chip.copyWith(
+              color: AppColors.accent,
+              fontSize: 9,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          ...visible.asMap().entries.map((entry) {
+            final index = entry.key + 1;
+            final step = entry.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$index.',
+                    style: AppTypography.mono.copyWith(
+                      color: AppColors.textMuted,
+                      fontSize: 10,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      step,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          if (remaining > 0)
+            Text(
+              '+$remaining more',
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            ),
+        ],
       ),
     );
   }

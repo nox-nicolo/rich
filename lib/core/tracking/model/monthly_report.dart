@@ -39,8 +39,14 @@ class MonthlyReport {
 
       if (existing is num && incoming is num) {
         current[entry.key] = existing + incoming;
+      } else if (existing is List && incoming is List) {
+        // Item lists (taskItems, meetingItems, etc.) accumulate across the
+        // month so the monthly report keeps every item from every folded day.
+        current[entry.key] = [...existing, ...incoming];
       } else if (existing == null && incoming is num) {
         current[entry.key] = incoming;
+      } else if (existing == null && incoming is List) {
+        current[entry.key] = List.from(incoming);
       } else {
         // non-numeric — last value wins
         current[entry.key] = incoming;

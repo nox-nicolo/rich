@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">rich</string>
+    <string name="rich_glance_widget_description">RICH compact discipline widget</string>
+    <string name="rich_command_widget_description">RICH large command board widget</string>
+</resources>

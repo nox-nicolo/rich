@@ -198,7 +198,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 await ref.read(appLockViewModelProvider.notifier)
                     .enableLockWithPin(pin: pin);
 
-                Navigator.pop(ctx);
+                if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text('ENABLE LOCK'),
             ),
@@ -274,7 +274,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   newPin: newCtrl.text.trim(),
                 );
 
-                Navigator.pop(ctx);
+                if (ctx.mounted) Navigator.pop(ctx);
               },
               child: const Text('UPDATE PIN'),
             ),

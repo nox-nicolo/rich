@@ -16,9 +16,9 @@ class TaskQueueWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(workViewModelProvider);
-    final vm    = ref.read(workViewModelProvider.notifier);
+    final vm = ref.read(workViewModelProvider.notifier);
 
-    final pending   = state.todayTasks.where((t) => !t.isCompleted).toList();
+    final pending = state.todayTasks.where((t) => !t.isCompleted).toList();
     final completed = state.todayTasks.where((t) => t.isCompleted).toList();
 
     return Column(
@@ -38,15 +38,22 @@ class TaskQueueWidget extends ConsumerWidget {
                 onTap: () => _showAddTaskSheet(context, vm),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     border: Border.all(
-                        color: AppColors.accent.withValues(alpha: 0.3),
-                        width: 0.5),
+                      color: AppColors.accent.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
                   ),
-                  child: const Icon(Icons.add, size: 14, color: AppColors.accent),
+                  child: const Icon(
+                    Icons.add,
+                    size: 14,
+                    color: AppColors.accent,
+                  ),
                 ),
               ),
             ],
@@ -57,34 +64,42 @@ class TaskQueueWidget extends ConsumerWidget {
           _EmptyState()
         else ...[
           // pending tasks
-          ...pending.map((task) => Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-            child: _TaskTile(
-              task:       task,
-              onComplete: () => vm.completeTask(task.id),
-              onDelete:   () => vm.deleteTask(task.id),
-              onFocus:    task.hasSchedule
-                  ? () => context.go('/work/focus/${task.id}')
-                  : null,
+          ...pending.map(
+            (task) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: _TaskTile(
+                task: task,
+                onComplete: () => vm.completeTask(task.id),
+                onDelete: () => vm.deleteTask(task.id),
+                onFocus: task.hasSchedule
+                    ? () => context.go('/work/focus/${task.id}')
+                    : null,
+              ),
             ),
-          )),
+          ),
 
           // completed tasks (collapsed section)
           if (completed.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text('DONE (${completed.length})',
-                style: AppTypography.label.copyWith(
-                    color: AppColors.textMuted, fontSize: 9)),
-            const SizedBox(height: AppSpacing.xs),
-            ...completed.map((task) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: _TaskTile(
-                task:       task,
-                onComplete: () {},
-                onDelete:   () => vm.deleteTask(task.id),
-                onFocus:    null,
+            Text(
+              'DONE (${completed.length})',
+              style: AppTypography.label.copyWith(
+                color: AppColors.textMuted,
+                fontSize: 9,
               ),
-            )),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ...completed.map(
+              (task) => Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: _TaskTile(
+                  task: task,
+                  onComplete: () {},
+                  onDelete: () => vm.deleteTask(task.id),
+                  onFocus: null,
+                ),
+              ),
+            ),
           ],
         ],
       ],
@@ -111,18 +126,30 @@ class TaskQueueWidget extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => StatefulBuilder(
         builder: (ctx, setState) => Padding(
           padding: EdgeInsets.fromLTRB(
-              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            20,
+            20,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Container(width: 36, height: 3,
-                  decoration: BoxDecoration(color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2)))),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               Text('ADD TASK', style: AppTypography.label),
               const SizedBox(height: 12),
@@ -131,8 +158,12 @@ class TaskQueueWidget extends ConsumerWidget {
               TextField(
                 controller: titleCtrl,
                 autofocus: true,
-                style: AppTypography.body.copyWith(color: AppColors.textPrimary),
-                decoration: const InputDecoration(hintText: 'What needs to be done?'),
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'What needs to be done?',
+                ),
               ),
               const SizedBox(height: 10),
 
@@ -141,16 +172,20 @@ class TaskQueueWidget extends ConsumerWidget {
                 controller: notesCtrl,
                 maxLines: 2,
                 style: AppTypography.body.copyWith(
-                    color: AppColors.textPrimary, fontSize: 13),
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                ),
                 decoration: const InputDecoration(
-                    hintText: 'Notes (optional)...'),
+                  hintText: 'Notes (optional)...',
+                ),
               ),
               const SizedBox(height: 14),
 
               // Time slot
-              Text('TIME',
-                  style: AppTypography.chip
-                      .copyWith(color: AppColors.textMuted)),
+              Text(
+                'TIME',
+                style: AppTypography.chip.copyWith(color: AppColors.textMuted),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -160,7 +195,9 @@ class TaskQueueWidget extends ConsumerWidget {
                       time: start,
                       onTap: () async {
                         final picked = await showTimePicker(
-                            context: ctx, initialTime: start);
+                          context: ctx,
+                          initialTime: start,
+                        );
                         if (picked != null) {
                           setState(() {
                             start = picked;
@@ -180,7 +217,9 @@ class TaskQueueWidget extends ConsumerWidget {
                       time: end,
                       onTap: () async {
                         final picked = await showTimePicker(
-                            context: ctx, initialTime: end);
+                          context: ctx,
+                          initialTime: end,
+                        );
                         if (picked != null) setState(() => end = picked);
                       },
                     ),
@@ -190,9 +229,10 @@ class TaskQueueWidget extends ConsumerWidget {
               const SizedBox(height: 14),
 
               // Intensity selector
-              Text('INTENSITY',
-                  style: AppTypography.chip
-                      .copyWith(color: AppColors.textMuted)),
+              Text(
+                'INTENSITY',
+                style: AppTypography.chip.copyWith(color: AppColors.textMuted),
+              ),
               const SizedBox(height: 8),
               Row(
                 children: TaskPriority.values.map((p) {
@@ -216,13 +256,13 @@ class TaskQueueWidget extends ConsumerWidget {
                             ),
                           ),
                           child: Center(
-                            child: Text(p.label,
-                                style: AppTypography.chip.copyWith(
-                                  color: isSelected
-                                      ? color
-                                      : AppColors.textMuted,
-                                  fontSize: 9,
-                                )),
+                            child: Text(
+                              p.label,
+                              style: AppTypography.chip.copyWith(
+                                color: isSelected ? color : AppColors.textMuted,
+                                fontSize: 9,
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -240,21 +280,23 @@ class TaskQueueWidget extends ConsumerWidget {
                     final today = DateTime.now();
                     final base = DateTime(today.year, today.month, today.day);
                     var startDt = base.add(
-                        Duration(hours: start.hour, minutes: start.minute));
+                      Duration(hours: start.hour, minutes: start.minute),
+                    );
                     var endDt = base.add(
-                        Duration(hours: end.hour, minutes: end.minute));
+                      Duration(hours: end.hour, minutes: end.minute),
+                    );
                     // If end <= start, treat end as next day at that time
                     if (!endDt.isAfter(startDt)) {
                       endDt = endDt.add(const Duration(days: 1));
                     }
                     vm.addTask(
-                      title:          titleCtrl.text.trim(),
-                      description:    notesCtrl.text.trim().isEmpty
+                      title: titleCtrl.text.trim(),
+                      description: notesCtrl.text.trim().isEmpty
                           ? null
                           : notesCtrl.text.trim(),
-                      priority:       intensity,
+                      priority: intensity,
                       scheduledStart: startDt,
-                      scheduledEnd:   endDt,
+                      scheduledEnd: endDt,
                     );
                     Navigator.pop(ctx);
                   },
@@ -263,11 +305,16 @@ class TaskQueueWidget extends ConsumerWidget {
                     foregroundColor: AppColors.background,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: Text('ADD TASK',
-                      style: AppTypography.h3
-                          .copyWith(color: AppColors.background, fontSize: 13)),
+                  child: Text(
+                    'ADD TASK',
+                    style: AppTypography.h3.copyWith(
+                      color: AppColors.background,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -292,7 +339,11 @@ class _TimeChip extends StatelessWidget {
   final String label;
   final TimeOfDay time;
   final VoidCallback onTap;
-  const _TimeChip({required this.label, required this.time, required this.onTap});
+  const _TimeChip({
+    required this.label,
+    required this.time,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -308,12 +359,20 @@ class _TimeChip extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label,
-                style: AppTypography.chip
-                    .copyWith(color: AppColors.textMuted, fontSize: 9)),
-            Text(_formatTOD(time),
-                style: AppTypography.mono.copyWith(
-                    color: AppColors.textPrimary, fontSize: 13)),
+            Text(
+              label,
+              style: AppTypography.chip.copyWith(
+                color: AppColors.textMuted,
+                fontSize: 9,
+              ),
+            ),
+            Text(
+              _formatTOD(time),
+              style: AppTypography.mono.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 13,
+              ),
+            ),
           ],
         ),
       ),
@@ -351,150 +410,235 @@ class _TaskTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _intensityColor(task.priority);
 
-    return GestureDetector(
-      onTap: onFocus,
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.cardPad),
-        decoration: BoxDecoration(
-          color: task.isCompleted
-              ? AppColors.surface.withValues(alpha: 0.4)
-              : AppColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(
-            color: task.priority == TaskPriority.critical && !task.isCompleted
-                ? color.withValues(alpha: 0.4)
-                : AppColors.border,
-            width: 0.5,
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: task.isCompleted
+            ? AppColors.surface.withValues(alpha: 0.4)
+            : AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(
+          color: task.priority == TaskPriority.critical && !task.isCompleted
+              ? color.withValues(alpha: 0.4)
+              : AppColors.border,
+          width: 0.5,
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Completion circle
-            GestureDetector(
-              onTap: task.isCompleted ? null : onComplete,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // ── Completion area: 56×56 plain GestureDetector tap zone ────────
+          // Plain GestureDetector (no Material/InkWell to avoid shape clipping
+          // or arena weirdness). HitTestBehavior.opaque guarantees the tap is
+          // captured anywhere in the 56×56 box, not just the visible circle.
+          GestureDetector(
+            onTap: task.isCompleted ? null : onComplete,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
               child: Container(
-                width: 22,
-                height: 22,
-                margin: const EdgeInsets.only(top: 1),
+                width: 32,
+                height: 32,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: task.isCompleted
                       ? AppColors.success.withValues(alpha: 0.15)
                       : Colors.transparent,
                   border: Border.all(
-                    color: task.isCompleted ? AppColors.success : AppColors.border,
-                    width: 1,
+                    color: task.isCompleted
+                        ? AppColors.success
+                        : AppColors.border,
+                    width: 1.5,
                   ),
                 ),
                 child: task.isCompleted
-                    ? const Icon(Icons.check, size: 12, color: AppColors.success)
+                    ? const Icon(
+                        Icons.check,
+                        size: 18,
+                        color: AppColors.success,
+                      )
                     : null,
               ),
             ),
-            const SizedBox(width: AppSpacing.md),
+          ),
 
-            // Intensity bar
-            Container(
-              width: 3,
-              height: task.description != null ? 44 : 28,
-              decoration: BoxDecoration(
-                color: task.isCompleted
-                    ? AppColors.border
-                    : color,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-              ),
+          // Intensity bar
+          Container(
+            width: 3,
+            height: 32,
+            decoration: BoxDecoration(
+              color: task.isCompleted ? AppColors.border : color,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
             ),
-            const SizedBox(width: AppSpacing.md),
+          ),
+          const SizedBox(width: AppSpacing.md),
 
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          task.title,
-                          style: AppTypography.h3.copyWith(
-                            fontSize: 13,
-                            color: task.isCompleted
-                                ? AppColors.textMuted
-                                : AppColors.textPrimary,
-                            decoration: task.isCompleted
-                                ? TextDecoration.lineThrough
-                                : null,
-                          ),
-                        ),
-                      ),
-                      if (task.hasSchedule)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
+          // Content — tappable for focus screen
+          Expanded(
+            child: GestureDetector(
+              onTap: onFocus,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
                           child: Text(
-                            '${_hhmm(task.scheduledStart!)}–${_hhmm(task.scheduledEnd!)}',
-                            style: AppTypography.mono.copyWith(
-                              fontSize: 10,
+                            task.title,
+                            style: AppTypography.h3.copyWith(
+                              fontSize: 13,
                               color: task.isCompleted
                                   ? AppColors.textMuted
                                   : AppColors.textPrimary,
+                              decoration: task.isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : null,
                             ),
                           ),
                         ),
-                      // Intensity badge (only for pending)
-                      if (!task.isCompleted)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
+                        if (task.hasSchedule)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Text(
+                              '${_hhmm(task.scheduledStart!)}–${_hhmm(task.scheduledEnd!)}',
+                              style: AppTypography.mono.copyWith(
+                                fontSize: 10,
+                                color: task.isCompleted
+                                    ? AppColors.textMuted
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
                           ),
-                          child: Text(task.priority.label,
+                        if (!task.isCompleted)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              task.priority.label,
                               style: AppTypography.chip.copyWith(
-                                  color: color, fontSize: 8)),
+                                color: color,
+                                fontSize: 8,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (task.description != null && !task.isCompleted) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        task.description!,
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textMuted,
                         ),
+                      ),
                     ],
-                  ),
-                  if (task.description != null && !task.isCompleted) ...[
-                    const SizedBox(height: 3),
-                    Text(task.description!,
-                        style: AppTypography.caption
-                            .copyWith(color: AppColors.textMuted)),
-                  ],
-                  if (task.isCompleted && task.overrunMinutes != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      task.overrunMinutes! > 0
-                          ? '+${task.overrunMinutes}m over plan'
-                          : task.overrunMinutes! < 0
-                              ? '${-task.overrunMinutes!}m under plan'
-                              : 'on time',
-                      style: AppTypography.caption.copyWith(
+                    if (task.isCompleted && task.overrunMinutes != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        task.overrunMinutes! > 0
+                            ? '+${task.overrunMinutes}m over plan'
+                            : task.overrunMinutes! < 0
+                            ? '${-task.overrunMinutes!}m under plan'
+                            : 'on time',
+                        style: AppTypography.caption.copyWith(
                           color: task.overrunMinutes! > 0
                               ? AppColors.warning
-                              : AppColors.success),
-                    ),
+                              : AppColors.success,
+                        ),
+                      ),
+                    ],
+                    if (task.isBlocked && task.blockedReason != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Blocked: ${task.blockedReason}',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.warning,
+                        ),
+                      ),
+                    ],
+                    if (task.carriedOverCount > 0) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        'Carried over ${task.carriedOverCount}×',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.caution,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
                   ],
-                  if (task.isBlocked && task.blockedReason != null) ...[
-                    const SizedBox(height: 3),
-                    Text('Blocked: ${task.blockedReason}',
-                        style: AppTypography.caption
-                            .copyWith(color: AppColors.warning)),
-                  ],
-                ],
+                ),
               ),
             ),
+          ),
 
+          if (!task.isCompleted && onFocus != null) ...[
+            const SizedBox(width: 6),
             GestureDetector(
-              onTap: onDelete,
-              child: const Padding(
-                padding: EdgeInsets.only(left: AppSpacing.sm, top: 2),
-                child: Icon(Icons.close, size: 14, color: AppColors.textMuted),
+              onTap: onFocus,
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.35),
+                    width: 0.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      task.status == TaskStatus.inProgress
+                          ? Icons.play_circle_outline
+                          : Icons.play_arrow_rounded,
+                      size: 16,
+                      color: AppColors.accent,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      task.status == TaskStatus.inProgress ? 'OPEN' : 'START',
+                      style: AppTypography.chip.copyWith(
+                        color: AppColors.accent,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
-        ),
+
+          // Delete button (44x44 tap target)
+          GestureDetector(
+            onTap: onDelete,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.close,
+                size: 16,
+                color: AppColors.textMuted,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -511,13 +655,18 @@ class _EmptyState extends StatelessWidget {
       child: Center(
         child: Column(
           children: [
-            const Icon(Icons.task_alt_outlined,
-                color: AppColors.textMuted, size: 28),
+            const Icon(
+              Icons.task_alt_outlined,
+              color: AppColors.textMuted,
+              size: 28,
+            ),
             const SizedBox(height: AppSpacing.md),
             Text('No tasks yet', style: AppTypography.body),
             const SizedBox(height: AppSpacing.xs),
-            Text('Tap + to add what you need to do today',
-                style: AppTypography.caption),
+            Text(
+              'Tap + to add what you need to do today',
+              style: AppTypography.caption,
+            ),
           ],
         ),
       ),

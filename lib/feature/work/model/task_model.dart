@@ -41,7 +41,18 @@ class TaskModel {
   final String? description;
   final TaskPriority priority;
   final TaskStatus status;
+
+  /// Immutable — the date the task was first created. Never changes.
   final DateTime createdAt;
+
+  /// The "active day" for this task. Null on first creation (falls back to
+  /// createdAt). Set to today whenever a carry-over moves the task forward so
+  /// createdAt is preserved as the true origin date.
+  final DateTime? scheduledFor;
+
+  /// Number of times this task was carried forward to the next day.
+  final int carriedOverCount;
+
   final DateTime? completedAt;
   final DateTime? dueDate;
   final DateTime? scheduledStart;
@@ -57,6 +68,8 @@ class TaskModel {
     required this.priority,
     required this.status,
     required this.createdAt,
+    this.scheduledFor,
+    this.carriedOverCount = 0,
     this.completedAt,
     this.dueDate,
     this.scheduledStart,
@@ -71,6 +84,8 @@ class TaskModel {
     String? description,
     TaskPriority? priority,
     TaskStatus? status,
+    DateTime? scheduledFor,
+    int? carriedOverCount,
     DateTime? completedAt,
     DateTime? dueDate,
     DateTime? scheduledStart,
@@ -86,6 +101,8 @@ class TaskModel {
       priority: priority ?? this.priority,
       status: status ?? this.status,
       createdAt: createdAt,
+      scheduledFor: scheduledFor ?? this.scheduledFor,
+      carriedOverCount: carriedOverCount ?? this.carriedOverCount,
       completedAt: completedAt ?? this.completedAt,
       dueDate: dueDate ?? this.dueDate,
       scheduledStart: scheduledStart ?? this.scheduledStart,
@@ -103,9 +120,17 @@ class TaskModel {
 
   bool get hasSchedule => scheduledStart != null && scheduledEnd != null;
 
-  int? get plannedMinutes => hasSchedule
-      ? scheduledEnd!.difference(scheduledStart!).inMinutes
-      : null;
+  /// The date this task is "active for". Used for day-filtering and carry-over
+  /// anchoring. Prefers scheduledFor (set on recycle), then scheduledStart,
+  /// then createdAt.
+  DateTime get activeDate {
+    if (scheduledFor != null) return scheduledFor!;
+    if (scheduledStart != null) return scheduledStart!;
+    return createdAt;
+  }
+
+  int? get plannedMinutes =>
+      hasSchedule ? scheduledEnd!.difference(scheduledStart!).inMinutes : null;
 
   int? get actualMinutes {
     if (actualStart == null || completedAt == null) return null;
@@ -119,8 +144,15 @@ class TaskModel {
     return a - p;
   }
 
-  // Stable notification id derived from task id (positive 31-bit int)
+  // Stable notification ids derived from task id (positive 31-bit ints).
+  // Task alarms use several ids so a scheduled task can keep nudging until
+  // the user opens it, then the viewmodel cancels the remaining pings.
   int get notificationId => id.hashCode & 0x7fffffff;
+  int get reminderNotificationId => (notificationId + 1) & 0x7fffffff;
+  int get startNotificationId => (notificationId + 2) & 0x7fffffff;
+  int get endNotificationId => (notificationId + 3) & 0x7fffffff;
+  int ringNotificationId(int index) =>
+      (notificationId + 100 + index) & 0x7fffffff;
 
   Map<String, dynamic> toMap() {
     return {
@@ -130,6 +162,8 @@ class TaskModel {
       'priority': priority.index,
       'status': status.index,
       'createdAt': createdAt.toIso8601String(),
+      'scheduledFor': scheduledFor?.toIso8601String(),
+      'carriedOverCount': carriedOverCount,
       'completedAt': completedAt?.toIso8601String(),
       'dueDate': dueDate?.toIso8601String(),
       'scheduledStart': scheduledStart?.toIso8601String(),
@@ -153,6 +187,8 @@ class TaskModel {
       priority: TaskPriority.values[m['priority'] as int],
       status: TaskStatus.values[m['status'] as int],
       createdAt: DateTime.parse(m['createdAt'] as String),
+      scheduledFor: parse('scheduledFor'),
+      carriedOverCount: (m['carriedOverCount'] as int?) ?? 0,
       completedAt: parse('completedAt'),
       dueDate: parse('dueDate'),
       scheduledStart: parse('scheduledStart'),

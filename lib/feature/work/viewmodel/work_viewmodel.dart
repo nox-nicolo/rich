@@ -13,6 +13,7 @@ import '../../rules_engine/model/user_mode.dart';
 import '../../dashboard/repository/dashboard_repository.dart';
 import '../../../core/services/vibration_service.dart';
 import '../../../core/services/notification_service.dart';
+import '../../../core/services/tick_sound_service.dart';
 import '../../../core/tracking/tracking_feature.dart';
 import '../../../core/tracking/tracking_service.dart';
 
@@ -73,8 +74,9 @@ class WorkState {
       todaySessions: todaySessions ?? this.todaySessions,
       upcomingMeetings: upcomingMeetings ?? this.upcomingMeetings,
       rules: rules ?? this.rules,
-      activeSession:
-          clearSession ? null : (activeSession ?? this.activeSession),
+      activeSession: clearSession
+          ? null
+          : (activeSession ?? this.activeSession),
       timerSeconds: timerSeconds ?? this.timerSeconds,
       timerRunning: timerRunning ?? this.timerRunning,
       isDeepWorkActive: isDeepWorkActive ?? this.isDeepWorkActive,
@@ -85,11 +87,9 @@ class WorkState {
 
   bool get hasActiveSession => activeSession != null;
 
-  int get completedTaskCount =>
-      todayTasks.where((t) => t.isCompleted).length;
+  int get completedTaskCount => todayTasks.where((t) => t.isCompleted).length;
 
-  int get pendingTaskCount =>
-      todayTasks.where((t) => !t.isCompleted).length;
+  int get pendingTaskCount => todayTasks.where((t) => !t.isCompleted).length;
 
   List<TaskModel> get highPriorityTasks =>
       todayTasks.where((t) => t.isHighPriority && !t.isCompleted).toList();
@@ -125,6 +125,17 @@ class WorkViewModel extends StateNotifier<WorkState> {
       isLoading: false,
     );
 
+    // Persist a task snapshot for each prior day that rolled over.
+    // This ensures the reports screen shows all tasks — done, pending, and
+    // blocked — not just sessions and completions.
+    for (final snap in recycle.priorSnapshots) {
+      await TrackingService.setKeys(
+        TrackingFeature.work,
+        snap.toTrackingData().map((k, v) => MapEntry(k, v as dynamic)),
+        atLocalDay: snap.date,
+      );
+    }
+
     // Re-schedule notifications for recycled tasks landing in the future
     final now = DateTime.now();
     for (final t in recycle.bumpedTasks) {
@@ -140,16 +151,89 @@ class WorkViewModel extends StateNotifier<WorkState> {
 
   Future<void> _scheduleTaskNotification(TaskModel task) async {
     if (task.scheduledStart == null) return;
-    if (!task.scheduledStart!.isAfter(DateTime.now())) return;
-    await NotificationService.instance.cancel(task.notificationId);
+    if (task.isCompleted) return;
+    await _cancelTaskOpenNotifications(task);
+
+    final now = DateTime.now();
+    final start = task.scheduledStart!;
+    final end = task.scheduledEnd;
+    final payload = 'task:${task.id}';
+
+    final headsUpAt = start.subtract(const Duration(minutes: 5));
+    if (headsUpAt.isAfter(now)) {
+      await NotificationService.instance.schedule(
+        id: task.reminderNotificationId,
+        title: '${task.title} starts in 5 min',
+        body: 'At ${_hhmm(start)}',
+        scheduledTime: headsUpAt,
+        channel: NotificationChannel.reminder,
+        payload: payload,
+      );
+    }
+
+    if (!start.isAfter(now)) return;
     await NotificationService.instance.schedule(
-      id: task.notificationId,
+      id: task.startNotificationId,
       title: 'Time to start: ${task.title}',
       body: task.scheduledEnd != null
           ? 'Until ${_hhmm(task.scheduledEnd!)}'
           : 'Tap to focus',
-      scheduledTime: task.scheduledStart!,
-      channel: NotificationChannel.reminder,
+      scheduledTime: start,
+      channel: NotificationChannel.taskAlarm,
+      payload: payload,
+    );
+
+    // Keep ringing once per minute while the task remains unopened. Android
+    // notifications cannot truly "loop until app state changes", so we queue
+    // a bounded alarm series and cancel the rest in markTaskStarted/complete.
+    final ringUntil = end != null && end.isAfter(start)
+        ? end
+        : start.add(const Duration(minutes: 30));
+    final ringCount = ringUntil
+        .difference(start)
+        .inMinutes
+        .clamp(0, 60)
+        .toInt();
+    for (var i = 1; i <= ringCount; i++) {
+      final ringAt = start.add(Duration(minutes: i));
+      if (!ringAt.isAfter(now)) continue;
+      await NotificationService.instance.schedule(
+        id: task.ringNotificationId(i),
+        title: 'Open task: ${task.title}',
+        body: 'Start this task or mark it done.',
+        scheduledTime: ringAt,
+        channel: NotificationChannel.taskAlarm,
+        payload: payload,
+      );
+    }
+  }
+
+  Future<void> _cancelTaskNotifications(TaskModel task) async {
+    await _cancelTaskOpenNotifications(task);
+    await NotificationService.instance.cancel(task.endNotificationId);
+  }
+
+  Future<void> _cancelTaskOpenNotifications(TaskModel task) async {
+    await NotificationService.instance.cancel(task.notificationId);
+    await NotificationService.instance.cancel(task.reminderNotificationId);
+    await NotificationService.instance.cancel(task.startNotificationId);
+    for (var i = 1; i <= 60; i++) {
+      await NotificationService.instance.cancel(task.ringNotificationId(i));
+    }
+  }
+
+  Future<void> _scheduleTaskEndNotification(TaskModel task) async {
+    final end = task.scheduledEnd;
+    if (end == null || task.isCompleted || !end.isAfter(DateTime.now())) return;
+
+    await NotificationService.instance.cancel(task.endNotificationId);
+    await NotificationService.instance.schedule(
+      id: task.endNotificationId,
+      title: 'Task time ended: ${task.title}',
+      body: 'Open RICH to mark it done or continue the overrun.',
+      scheduledTime: end,
+      channel: NotificationChannel.taskAlarm,
+      payload: 'task:${task.id}',
     );
   }
 
@@ -169,20 +253,20 @@ class WorkViewModel extends StateNotifier<WorkState> {
     DateTime? scheduledStart,
     DateTime? scheduledEnd,
   }) async {
+    final now = DateTime.now();
     final task = TaskModel(
       id: const Uuid().v4(),
       title: title,
       description: description,
       priority: priority,
       status: TaskStatus.pending,
-      createdAt: DateTime.now(),
+      createdAt: now,
+      scheduledFor: DateTime(now.year, now.month, now.day),
       scheduledStart: scheduledStart,
       scheduledEnd: scheduledEnd,
     );
     await _repo.saveTask(task);
-    state = state.copyWith(
-      todayTasks: _sortTasks([...state.todayTasks, task]),
-    );
+    state = state.copyWith(todayTasks: _sortTasks([...state.todayTasks, task]));
     await _scheduleTaskNotification(task);
   }
 
@@ -195,7 +279,11 @@ class WorkViewModel extends StateNotifier<WorkState> {
 
   Future<void> markTaskStarted(String id) async {
     final prior = state.todayTasks.firstWhere((t) => t.id == id);
-    if (prior.actualStart != null || prior.isCompleted) return;
+    if (prior.actualStart != null || prior.isCompleted) {
+      await _cancelTaskOpenNotifications(prior);
+      await _scheduleTaskEndNotification(prior);
+      return;
+    }
     final updated = state.todayTasks.map((t) {
       if (t.id != id) return t;
       return t.copyWith(
@@ -203,8 +291,11 @@ class WorkViewModel extends StateNotifier<WorkState> {
         status: TaskStatus.inProgress,
       );
     }).toList();
-    await _repo.saveTask(updated.firstWhere((t) => t.id == id));
+    final task = updated.firstWhere((t) => t.id == id);
     state = state.copyWith(todayTasks: updated);
+    await _repo.saveTask(task);
+    await _cancelTaskOpenNotifications(task);
+    await _scheduleTaskEndNotification(task);
   }
 
   Future<void> completeTask(String id) async {
@@ -221,9 +312,22 @@ class WorkViewModel extends StateNotifier<WorkState> {
       );
     }).toList();
     final task = updated.firstWhere((t) => t.id == id);
-    await _repo.saveTask(task);
-    await NotificationService.instance.cancel(task.notificationId);
+
+    // ── State update FIRST ──────────────────────────────────────────────────
+    // The task list reflects "done" immediately, regardless of whether the
+    // async work below succeeds or hangs. Previously this ran AFTER awaits,
+    // so a hung Hive write or notification cancel would leave the task
+    // visually undone in the list even after the user tapped MARK DONE.
     state = state.copyWith(todayTasks: updated);
+
+    // ── Then persist + record. Each call in its own try so one failure
+    //    can't block the others.
+    try {
+      await _repo.saveTask(task);
+    } catch (_) {}
+    try {
+      await _cancelTaskNotifications(task);
+    } catch (_) {}
 
     if (!alreadyCompleted) {
       final payload = <String, dynamic>{'tasksCompleted': 1};
@@ -234,8 +338,22 @@ class WorkViewModel extends StateNotifier<WorkState> {
       if (planned != null && actual != null) {
         payload['taskOverrunSeconds'] = (actual - planned) * 60;
       }
-      await TrackingService.record(TrackingFeature.work, payload);
-      VibrationService.strongPulse();
+      // Record the actual task title + description + duration so the user
+      // can see exactly what they did when reviewing the report later.
+      payload['taskItems'] = [
+        {
+          'title': task.title,
+          'description': task.description ?? '',
+          'minutes': actual ?? planned ?? 0,
+          'priority': task.priority.name,
+        },
+      ];
+      try {
+        await TrackingService.record(TrackingFeature.work, payload);
+      } catch (_) {}
+      try {
+        VibrationService.strongPulse();
+      } catch (_) {}
     }
   }
 
@@ -255,13 +373,11 @@ class WorkViewModel extends StateNotifier<WorkState> {
   Future<void> blockTask(String id, String reason) async {
     final updated = state.todayTasks.map((t) {
       if (t.id != id) return t;
-      return t.copyWith(
-        status: TaskStatus.blocked,
-        blockedReason: reason,
-      );
+      return t.copyWith(status: TaskStatus.blocked, blockedReason: reason);
     }).toList();
     final task = updated.firstWhere((t) => t.id == id);
     await _repo.saveTask(task);
+    await _cancelTaskNotifications(task);
     state = state.copyWith(todayTasks: updated);
   }
 
@@ -276,8 +392,12 @@ class WorkViewModel extends StateNotifier<WorkState> {
         createdAt: DateTime.now(),
       ),
     );
+    // Record cancellation so reports reflect removed-but-not-done tasks
+    if (!prior.isCompleted && prior.title.isNotEmpty) {
+      await TrackingService.record(TrackingFeature.work, {'tasksCancelled': 1});
+    }
     await _repo.deleteTask(id);
-    await NotificationService.instance.cancel(prior.notificationId);
+    await _cancelTaskNotifications(prior);
     state = state.copyWith(
       todayTasks: state.todayTasks.where((t) => t.id != id).toList(),
     );
@@ -303,12 +423,16 @@ class WorkViewModel extends StateNotifier<WorkState> {
       _setDeepWork(true);
     }
     _ref.read(ruleContextProvider.notifier).setMode(UserMode.working);
+
+    TickSoundService.instance.prime(); // warm up audio before timer starts
   }
 
   void startTimer() {
     if (state.timerRunning || !state.hasActiveSession) return;
     state = state.copyWith(timerRunning: true);
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      TickSoundService.instance.tick(); // tick every second
+
       final remaining = state.timerSeconds - 1;
       if (remaining <= 0) {
         _timer?.cancel();
@@ -334,6 +458,7 @@ class WorkViewModel extends StateNotifier<WorkState> {
   void cancelFocusSession() {
     _timer?.cancel();
     _setDeepWork(false);
+    TickSoundService.instance.dispose(); // release audio on cancel
     state = state.copyWith(clearSession: true, timerRunning: false);
     _ref.read(ruleContextProvider.notifier).setMode(UserMode.idle);
   }
@@ -362,7 +487,7 @@ class WorkViewModel extends StateNotifier<WorkState> {
         ? completed.completedAt!.difference(completed.startedAt).inSeconds
         : completed.durationSeconds;
     await TrackingService.record(TrackingFeature.work, {
-      'sessions':     1,
+      'sessions': 1,
       'deepSessions': session.type.isDeepWork ? 1 : 0,
       'totalSeconds': actualSeconds,
     });
@@ -456,51 +581,91 @@ class WorkViewModel extends StateNotifier<WorkState> {
   Future<void> startMeeting(String id) async {
     final m = meetingById(id);
     if (m == null || m.isCompleted) return;
-    if (m.isInProgress) return;
+
+    // Always guarantee actualStart is set when the meeting screen opens.
+    // Without this the elapsed timer can't compute and endMeeting's duration
+    // calculation throws on a null check, leaving the meeting stuck in-progress.
+    final now = DateTime.now();
+    final needsUpdate = m.actualStart == null || !m.isInProgress;
+    if (!needsUpdate) return;
+
     final updated = m.copyWith(
       status: MeetingStatus.inProgress,
-      actualStart: DateTime.now(),
+      actualStart: m.actualStart ?? now,
     );
-    await _repo.saveMeeting(updated);
-    await _cancelMeetingNotifications(updated);
-    final list = state.upcomingMeetings.map((x) => x.id == id ? updated : x).toList();
+
+    // Update state synchronously first so the UI reflects in-progress
+    // immediately, even if the repo write or notification cancel hangs.
+    final list = state.upcomingMeetings
+        .map((x) => x.id == id ? updated : x)
+        .toList();
     if (!list.any((x) => x.id == id)) list.add(updated);
     state = state.copyWith(
-      upcomingMeetings: list..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt)),
+      upcomingMeetings: list
+        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt)),
     );
+
+    await _repo.saveMeeting(updated);
+    await _cancelMeetingNotifications(updated);
   }
 
   Future<void> endMeeting(String id, {String? outcome}) async {
     final m = meetingById(id);
     if (m == null || m.isCompleted) return;
     final now = DateTime.now();
+    // Guard against a null actualStart (shouldn't happen if startMeeting ran,
+    // but if it did we still want endMeeting to work — not throw a null check).
+    final start = m.actualStart ?? now;
     final updated = m.copyWith(
       status: MeetingStatus.completed,
-      actualStart: m.actualStart ?? now,
+      actualStart: start,
       actualEnd: now,
       outcome: outcome,
     );
-    await _repo.saveMeeting(updated);
-    await _cancelMeetingNotifications(updated);
 
-    final actualMins = updated.actualEnd!
-        .difference(updated.actualStart!)
-        .inMinutes;
-    await TrackingService.record(TrackingFeature.work, {
-      'meetings': 1,
-      'meetingActualMinutes': actualMins,
-      'meetingPlannedMinutes': updated.durationMinutes,
-    });
-    VibrationService.strongPulse();
-
+    // ── Update state SYNCHRONOUSLY first ───────────────────────────────────
+    // This is critical: removing the meeting from upcomingMeetings here
+    // means the meeting list reflects "completed" instantly, regardless of
+    // whether the async repo/tracking work below succeeds or hangs.
     state = state.copyWith(
-      upcomingMeetings:
-          state.upcomingMeetings.where((x) => x.id != id).toList(),
+      upcomingMeetings: state.upcomingMeetings
+          .where((x) => x.id != id)
+          .toList(),
     );
+
+    // ── Then persist + record. Each call in its own try so one failure
+    //    can't block the others (e.g. notifications fail → tracking still runs).
+    try {
+      await _repo.saveMeeting(updated);
+    } catch (_) {}
+    try {
+      await _cancelMeetingNotifications(updated);
+    } catch (_) {}
+
+    final actualMins = now.difference(start).inMinutes;
+    try {
+      await TrackingService.record(TrackingFeature.work, {
+        'meetings': 1,
+        'meetingActualMinutes': actualMins,
+        'meetingPlannedMinutes': updated.durationMinutes,
+        // Record the meeting title + agenda + outcome so the user sees what
+        // each meeting was about when writing their end-of-month report.
+        'meetingItems': [
+          {
+            'title': updated.title,
+            'agenda': updated.agenda ?? '',
+            'outcome': outcome ?? '',
+            'minutes': actualMins,
+          },
+        ],
+      });
+    } catch (_) {}
+    try {
+      VibrationService.strongPulse();
+    } catch (_) {}
   }
 
-  Future<void> saveMeetingPrepNotes(
-      String id, String notes) async {
+  Future<void> saveMeetingPrepNotes(String id, String notes) async {
     final updated = state.upcomingMeetings.map((m) {
       if (m.id != id) return m;
       return m.copyWith(prepNotes: notes);
@@ -513,6 +678,7 @@ class WorkViewModel extends StateNotifier<WorkState> {
   @override
   void dispose() {
     _timer?.cancel();
+    TickSoundService.instance.dispose(); // release audio on viewmodel dispose
     super.dispose();
   }
 }
@@ -523,7 +689,6 @@ final workRepositoryProvider = Provider<WorkRepository>(
   (_) => WorkRepository(),
 );
 
-final workViewModelProvider =
-    StateNotifierProvider<WorkViewModel, WorkState>(
+final workViewModelProvider = StateNotifierProvider<WorkViewModel, WorkState>(
   (ref) => WorkViewModel(ref.read(workRepositoryProvider), ref),
 );

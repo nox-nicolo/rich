@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/glossy_card.dart';
 import '../../../../core/widgets/rich_section_header.dart';
 import '../../model/dashboard_state_model.dart';
 
@@ -21,48 +22,49 @@ class RoutineProgressWidget extends StatelessWidget {
     final total     = state.totalRoutines;
     final rate      = state.routineCompletionRate;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-
-        // ── Header ───────────────────────────────────────────────────────
-        RichSectionHeader(
-          title: "TODAY'S ROUTINE",
-          trailing: Text(
-            '$completed / $total',
-            style: AppTypography.mono.copyWith(fontSize: 12),
-          ),
-        ),
-
-        // ── Progress bar ─────────────────────────────────────────────────
-        ClipRRect(
-          borderRadius:
-              BorderRadius.circular(AppSpacing.radiusFull),
-          child: LinearProgressIndicator(
-            value: rate,
-            backgroundColor: AppColors.surfaceVar,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              rate >= 1.0 ? AppColors.success : AppColors.accent,
+    return GlossyCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ───────────────────────────────────────────────────────
+          RichSectionHeader(
+            title: "TODAY'S ROUTINE",
+            trailing: Text(
+              '$completed / $total',
+              style: AppTypography.mono.copyWith(fontSize: 12),
             ),
-            minHeight: 3,
           ),
-        ),
 
-        const SizedBox(height: AppSpacing.md),
-
-        // ── Routine pills (read-only — auto-tracked by modules) ──────────
-        if (state.routineProgress.isNotEmpty)
-          Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs + 2,
-            children: state.routineProgress.entries
-                .map((entry) => _RoutinePill(
-                      name: entry.key,
-                      done: entry.value,
-                    ))
-                .toList(),
+          // ── Progress bar ─────────────────────────────────────────────────
+          ClipRRect(
+            borderRadius:
+                BorderRadius.circular(AppSpacing.radiusFull),
+            child: LinearProgressIndicator(
+              value: rate,
+              backgroundColor: AppColors.surfaceVar,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                rate >= 1.0 ? AppColors.success : AppColors.accent,
+              ),
+              minHeight: 3,
+            ),
           ),
-      ],
+
+          const SizedBox(height: AppSpacing.md),
+
+          // ── Routine pills (read-only — auto-tracked by modules) ──────────
+          if (state.routineProgress.isNotEmpty)
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs + 2,
+              children: state.routineProgress.entries
+                  .map((entry) => _RoutinePill(
+                        name: entry.key,
+                        done: entry.value,
+                      ))
+                  .toList(),
+            ),
+        ],
+      ),
     );
   }
 }

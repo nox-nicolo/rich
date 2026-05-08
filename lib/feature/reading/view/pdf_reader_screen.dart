@@ -1,10 +1,14 @@
 // lib/feature/reading/view/pdf_reader_screen.dart
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -13,16 +17,32 @@ import '../model/highlight_model.dart';
 import '../viewmodel/reading_viewmodel.dart';
 
 // Kindle-ish warm paper background for day mode; near-black for night.
-const Color _sepia   = Color(0xFFF4ECD8);
+const Color _sepia = Color(0xFFF4ECD8);
 const Color _nightBg = Color(0xFF0B0B0B);
 
 /// Invert color matrix for night-mode PDFs — flips RGB, keeps alpha.
 /// This gives a "dark Kindle" look without needing a PDF-native dark theme.
 const List<double> _nightInvertMatrix = <double>[
-  -1,  0,  0, 0, 255,
-   0, -1,  0, 0, 255,
-   0,  0, -1, 0, 255,
-   0,  0,  0, 1,   0,
+  -1,
+  0,
+  0,
+  0,
+  255,
+  0,
+  -1,
+  0,
+  0,
+  255,
+  0,
+  0,
+  -1,
+  0,
+  255,
+  0,
+  0,
+  0,
+  1,
+  0,
 ];
 
 // ── Highlight colours per annotation type ─────────────────────────────────────
@@ -33,13 +53,16 @@ const List<double> _nightInvertMatrix = <double>[
 // them, light enough that they don't obscure the letters underneath.
 const Color _highlightNoted = Color(0xFFFFE57A); // warm yellow
 const Color _highlightVocab = Color(0xFF80C0FF); // sky blue
-const Color _highlightIdea  = Color(0xFF9EE493); // mint green
+const Color _highlightIdea = Color(0xFF9EE493); // mint green
 
 Color _colorFor(HighlightType t) {
   switch (t) {
-    case HighlightType.noted: return _highlightNoted;
-    case HighlightType.vocab: return _highlightVocab;
-    case HighlightType.idea:  return _highlightIdea;
+    case HighlightType.noted:
+      return _highlightNoted;
+    case HighlightType.vocab:
+      return _highlightVocab;
+    case HighlightType.idea:
+      return _highlightIdea;
   }
 }
 
@@ -53,14 +76,25 @@ class PdfReaderScreen extends ConsumerStatefulWidget {
 
 class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
   final PdfViewerController _controller = PdfViewerController();
+  final FlutterTts _tts = FlutterTts();
   // GlobalKey into SfPdfViewerState — needed because getSelectedTextLines()
   // lives on the State, not the controller.
   final GlobalKey<SfPdfViewerState> _viewerKey = GlobalKey<SfPdfViewerState>();
-  bool    _showControls = true;
-  int     _currentPage  = 1;
-  int     _totalPages   = 0;
-  bool    _nightMode    = false;
+  bool _showControls = true;
+  int _currentPage = 1;
+  int _totalPages = 0;
+  bool _nightMode = false;
+  bool _readingAloud = false;
+  bool _loadingReadAloud = false;
+  double _speechRate = 0.45;
   String? _selectedText;
+  int _readAloudSession = 0;
+  bool _startingReadAloud = false;
+  String? _readAloudFilePath;
+  _ReadAloudPage? _readAloudPage;
+  int? _readAloudPageNumber;
+  int? _activeReadAloudWord;
+  HighlightAnnotation? _readAloudAnnotation;
 
   /// Set to true once we add at least one annotation in this session so we
   /// know we need to flush the PDF bytes back to disk on exit. If no
@@ -77,12 +111,39 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
     // Kindle-like full-screen reading — hide status + nav bars.
     // They reappear briefly on an edge-swipe and auto-hide again.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    // Keep the screen on while reading — auto-lock breaks focus.
+    WakelockPlus.enable();
+
+    _tts.setLanguage('en-US');
+    _tts.setSpeechRate(_speechRate);
+    _tts.setPitch(1.0);
+    _tts.setCompletionHandler(() {
+      if (_startingReadAloud) return;
+      unawaited(_handleReadAloudComplete(_readAloudSession));
+    });
+    _tts.setProgressHandler((_, startOffset, __, word) {
+      _syncReadAloudHighlight(startOffset, word);
+    });
+    _tts.setErrorHandler((_) {
+      if (mounted) {
+        _clearReadAloudHighlight();
+        setState(() {
+          _readingAloud = false;
+          _loadingReadAloud = false;
+          _activeReadAloudWord = null;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     // Restore normal system UI when leaving the reader.
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    WakelockPlus.disable();
+    _clearReadAloudHighlight();
+    _tts.stop();
     _controller.dispose();
     super.dispose();
   }
@@ -90,8 +151,330 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
   void _toggleControls() => setState(() => _showControls = !_showControls);
 
   void _savePage(int page) {
-    ref.read(readingViewModelProvider.notifier)
+    ref
+        .read(readingViewModelProvider.notifier)
         .updateProgress(widget.book.id, page);
+  }
+
+  Future<void> _toggleReadCurrentPage(String? filePath) async {
+    if (_readingAloud || _loadingReadAloud) {
+      await _stopReadAloud();
+      return;
+    }
+    if (filePath == null) return;
+
+    _readAloudFilePath = filePath;
+    final session = ++_readAloudSession;
+    setState(() => _loadingReadAloud = true);
+    await _readPageAloud(filePath, _currentPage, session);
+  }
+
+  Future<void> _readPageAloud(
+    String filePath,
+    int pageNumber,
+    int session,
+  ) async {
+    try {
+      final page = await _extractReadAloudPage(filePath, pageNumber);
+      if (!mounted) return;
+      if (session != _readAloudSession) return;
+      if (page.text.isEmpty) {
+        final nextPage = pageNumber + 1;
+        if (_totalPages == 0 || nextPage <= _totalPages) {
+          setState(() {
+            _readingAloud = true;
+            _loadingReadAloud = true;
+            _readAloudPage = null;
+            _readAloudPageNumber = pageNumber;
+            _activeReadAloudWord = null;
+          });
+          await _readPageAloud(filePath, nextPage, session);
+          return;
+        }
+
+        _clearReadAloudHighlight();
+        setState(() {
+          _readingAloud = false;
+          _loadingReadAloud = false;
+          _readAloudPage = null;
+          _readAloudPageNumber = null;
+          _activeReadAloudWord = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No readable text found before the end of the book.',
+              style: AppTypography.caption,
+            ),
+            backgroundColor: AppColors.surface,
+          ),
+        );
+        return;
+      }
+
+      if (_currentPage != pageNumber) {
+        _controller.jumpToPage(pageNumber);
+        _savePage(pageNumber);
+      }
+
+      _clearReadAloudHighlight();
+      setState(() {
+        _readAloudPage = page;
+        _readAloudPageNumber = pageNumber;
+        _activeReadAloudWord = null;
+        _loadingReadAloud = false;
+        _readingAloud = true;
+        _showControls = true;
+      });
+      _startingReadAloud = true;
+      try {
+        await _tts.stop();
+        await _tts.setSpeechRate(_speechRate);
+        await _tts.speak(page.text);
+      } finally {
+        _startingReadAloud = false;
+      }
+    } catch (_) {
+      if (!mounted) return;
+      _clearReadAloudHighlight();
+      setState(() => _loadingReadAloud = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Could not read this PDF page aloud.',
+            style: AppTypography.caption,
+          ),
+          backgroundColor: AppColors.surface,
+        ),
+      );
+    }
+  }
+
+  Future<_ReadAloudPage> _extractReadAloudPage(
+    String filePath,
+    int pageNumber,
+  ) async {
+    final bytes = await File(filePath).readAsBytes();
+    final document = PdfDocument(inputBytes: bytes);
+    try {
+      final pageIndex = (pageNumber - 1).clamp(0, document.pages.count - 1);
+      final lines = PdfTextExtractor(
+        document,
+      ).extractTextLines(startPageIndex: pageIndex, endPageIndex: pageIndex);
+      final readWords = <_ReadAloudWord>[];
+      final buffer = StringBuffer();
+      for (final line in lines) {
+        final text = _cleanSpeechText(line.text);
+        if (text.isEmpty) continue;
+        for (final word in line.wordCollection) {
+          final wordText = _cleanSpeechText(word.text);
+          if (wordText.isEmpty) continue;
+          if (buffer.isNotEmpty) buffer.write(' ');
+          final wordStart = buffer.length;
+          buffer.write(wordText);
+          readWords.add(
+            _ReadAloudWord(
+              text: wordText,
+              startOffset: wordStart,
+              endOffset: buffer.length,
+              pdfWord: PdfTextLine(word.bounds, word.text, pageNumber),
+            ),
+          );
+        }
+      }
+      return _ReadAloudPage(text: buffer.toString(), words: readWords);
+    } finally {
+      document.dispose();
+    }
+  }
+
+  Future<void> _speakText(
+    String text, {
+    bool continuousPageRead = false,
+  }) async {
+    _startingReadAloud = true;
+    try {
+      await _tts.stop();
+      await _tts.setSpeechRate(_speechRate);
+      if (!continuousPageRead) {
+        _readAloudSession++;
+        _readAloudFilePath = null;
+        _readAloudPage = null;
+        _readAloudPageNumber = null;
+        _activeReadAloudWord = null;
+        _clearReadAloudHighlight();
+      }
+      setState(() {
+        _loadingReadAloud = false;
+        _readingAloud = true;
+      });
+      await _tts.speak(_cleanSpeechText(text));
+    } finally {
+      _startingReadAloud = false;
+    }
+  }
+
+  Future<void> _stopReadAloud() async {
+    _readAloudSession++;
+    await _tts.stop();
+    _clearReadAloudHighlight();
+    if (!mounted) return;
+    setState(() {
+      _readingAloud = false;
+      _loadingReadAloud = false;
+      _readAloudPage = null;
+      _readAloudPageNumber = null;
+      _activeReadAloudWord = null;
+    });
+  }
+
+  String _cleanSpeechText(String text) =>
+      text.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  void _syncReadAloudHighlight(int startOffset, String word) {
+    final page = _readAloudPage;
+    if (!mounted || page == null || page.words.isEmpty) return;
+    var index = page.words.indexWhere(
+      (word) => startOffset >= word.startOffset && startOffset < word.endOffset,
+    );
+    if (index == -1 && word.isNotEmpty) {
+      final spoken = _normalizeReadAloudWord(word);
+      index = page.words.indexWhere(
+        (item) => _normalizeReadAloudWord(item.text) == spoken,
+      );
+    }
+    if (index == -1 || index == _activeReadAloudWord) return;
+    _paintReadAloudWord(page.words[index].pdfWord);
+    setState(() => _activeReadAloudWord = index);
+  }
+
+  String _normalizeReadAloudWord(String text) =>
+      text.toLowerCase().replaceAll(RegExp(r"[^a-z0-9']"), '').trim();
+
+  void _paintReadAloudWord(PdfTextLine word) {
+    _clearReadAloudHighlight();
+    try {
+      final annotation = HighlightAnnotation(textBoundsCollection: [word]);
+      annotation.color = AppColors.accent.withValues(alpha: 0.55);
+      _controller.addAnnotation(annotation);
+      _readAloudAnnotation = annotation;
+    } catch (_) {
+      // The transcript still updates if temporary PDF markup is unavailable.
+    }
+  }
+
+  void _clearReadAloudHighlight() {
+    final annotation = _readAloudAnnotation;
+    if (annotation == null) return;
+    try {
+      _controller.removeAnnotation(annotation);
+    } catch (_) {
+      // Best effort; the annotation is temporary and not marked for saving.
+    }
+    _readAloudAnnotation = null;
+  }
+
+  Future<void> _handleReadAloudComplete(int session) async {
+    if (!mounted || session != _readAloudSession) return;
+    final filePath = _readAloudFilePath;
+    final nextPage = (_readAloudPageNumber ?? _currentPage) + 1;
+    _clearReadAloudHighlight();
+    if (filePath != null && (_totalPages == 0 || nextPage <= _totalPages)) {
+      setState(() {
+        _loadingReadAloud = true;
+        _activeReadAloudWord = null;
+      });
+      await _readPageAloud(filePath, nextPage, session);
+      return;
+    }
+    setState(() {
+      _readingAloud = false;
+      _loadingReadAloud = false;
+      _readAloudPage = null;
+      _readAloudPageNumber = null;
+      _activeReadAloudWord = null;
+    });
+  }
+
+  Future<void> _setSpeechRate(double value) async {
+    setState(() => _speechRate = value);
+    await _tts.setSpeechRate(value);
+  }
+
+  void _showReadAloudSettings() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        var draftRate = _speechRate;
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) => Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              MediaQuery.of(ctx).padding.bottom + 20,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('READ ALOUD SPEED', style: AppTypography.label),
+                const SizedBox(height: 6),
+                Text(
+                  '${_rateLabel(draftRate)}  •  ${draftRate.toStringAsFixed(2)}x',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Slider(
+                  value: draftRate,
+                  min: 0.25,
+                  max: 0.75,
+                  divisions: 10,
+                  activeColor: AppColors.accent,
+                  inactiveColor: AppColors.border,
+                  onChanged: (value) async {
+                    setSheetState(() => draftRate = value);
+                    await _setSpeechRate(value);
+                  },
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('SLOW', style: AppTypography.caption),
+                    Text('FAST', style: AppTypography.caption),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _rateLabel(double rate) {
+    if (rate <= 0.3) return 'Very slow';
+    if (rate <= 0.4) return 'Slow';
+    if (rate <= 0.5) return 'Normal';
+    if (rate <= 0.6) return 'Quick';
+    return 'Fast';
   }
 
   /// Flush any newly-added highlight annotations back to the PDF file on
@@ -112,12 +495,16 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
   /// Gated exit — persist annotations first, then pop. Used both by the
   /// back button and by [PopScope.onPopInvokedWithResult].
   Future<void> _exitReader() async {
+    _readAloudSession++;
+    await _tts.stop();
+    _clearReadAloudHighlight();
     await _persistAnnotations();
     if (mounted) Navigator.of(context).pop();
   }
 
   void _markComplete() async {
-    await ref.read(readingViewModelProvider.notifier)
+    await ref
+        .read(readingViewModelProvider.notifier)
         .markCompleted(widget.book.id);
     if (mounted) await _exitReader();
   }
@@ -141,11 +528,13 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
       // Older syncfusion versions don't expose clearSelection — no-op.
     }
 
-    await ref.read(readingViewModelProvider.notifier).addHighlight(
-          bookId:     widget.book.id,
-          bookTitle:  bookTitle,
-          content:    text,
-          type:       type,
+    await ref
+        .read(readingViewModelProvider.notifier)
+        .addHighlight(
+          bookId: widget.book.id,
+          bookTitle: bookTitle,
+          content: text,
+          type: type,
           pageNumber: _currentPage,
         );
 
@@ -153,7 +542,7 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
     final msg = switch (type) {
       HighlightType.noted => 'Saved to Highlights',
       HighlightType.vocab => 'Added to Vocabulary — looking up definition…',
-      HighlightType.idea  => 'Saved to Vault',
+      HighlightType.idea => 'Saved to Vault',
     };
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -191,22 +580,36 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
-            20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 36, height: 3,
-                decoration: BoxDecoration(color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2)))),
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Text('DAILY PAGE GOAL', style: AppTypography.label),
             const SizedBox(height: 4),
-            Text('Minimum pages to read per day for this book.',
-                style: AppTypography.caption),
+            Text(
+              'Minimum pages to read per day for this book.',
+              style: AppTypography.caption,
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
@@ -224,18 +627,24 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
                   foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () async {
                   final goal = int.tryParse(ctrl.text.trim());
                   if (goal == null || goal < 1) return;
                   Navigator.pop(ctx);
-                  await ref.read(readingViewModelProvider.notifier)
+                  await ref
+                      .read(readingViewModelProvider.notifier)
                       .setDailyGoal(widget.book.id, goal);
                 },
-                child: Text('SAVE GOAL',
-                    style: AppTypography.h3.copyWith(
-                        color: AppColors.background, fontSize: 13)),
+                child: Text(
+                  'SAVE GOAL',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.background,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ],
@@ -247,9 +656,14 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
   @override
   Widget build(BuildContext context) {
     // Watch the live book so daily progress / goal updates reflect immediately.
-    final book = ref.watch(readingViewModelProvider.select((s) =>
-        s.allBooks.firstWhere((b) => b.id == widget.book.id,
-            orElse: () => widget.book)));
+    final book = ref.watch(
+      readingViewModelProvider.select(
+        (s) => s.allBooks.firstWhere(
+          (b) => b.id == widget.book.id,
+          orElse: () => widget.book,
+        ),
+      ),
+    );
     final filePath = book.filePath;
 
     if (filePath == null || !File(filePath).existsSync()) {
@@ -258,8 +672,11 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
         appBar: AppBar(
           backgroundColor: AppColors.background,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new,
-                size: AppSpacing.iconSm, color: AppColors.textPrimary),
+            icon: const Icon(
+              Icons.arrow_back_ios_new,
+              size: AppSpacing.iconSm,
+              color: AppColors.textPrimary,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
         ),
@@ -267,14 +684,19 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.broken_image_outlined,
-                  size: 48, color: AppColors.textMuted),
+              const Icon(
+                Icons.broken_image_outlined,
+                size: 48,
+                color: AppColors.textMuted,
+              ),
               const SizedBox(height: 16),
               Text('PDF file not found', style: AppTypography.body),
               const SizedBox(height: 8),
-              Text(filePath ?? 'No path saved',
-                  style: AppTypography.caption,
-                  textAlign: TextAlign.center),
+              Text(
+                filePath ?? 'No path saved',
+                style: AppTypography.caption,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -321,7 +743,8 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
         // needed so updateProgress() can clamp correctly and
         // progress% works on the shelf.
         if (book.totalPages != count) {
-          ref.read(readingViewModelProvider.notifier)
+          ref
+              .read(readingViewModelProvider.notifier)
               .setTotalPages(widget.book.id, count);
         }
       },
@@ -358,8 +781,9 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
               Positioned.fill(
                 child: _nightMode
                     ? ColorFiltered(
-                        colorFilter:
-                            const ColorFilter.matrix(_nightInvertMatrix),
+                        colorFilter: const ColorFilter.matrix(
+                          _nightInvertMatrix,
+                        ),
                         child: themedViewer,
                       )
                     : themedViewer,
@@ -368,11 +792,15 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
               // ── Top bar ──────────────────────────────────────────────────
               if (_showControls)
                 Positioned(
-                  top: 0, left: 0, right: 0,
+                  top: 0,
+                  left: 0,
+                  right: 0,
                   child: Container(
                     padding: EdgeInsets.only(
                       top: MediaQuery.of(context).padding.top + 8,
-                      left: 12, right: 12, bottom: 8,
+                      left: 12,
+                      right: 12,
+                      bottom: 8,
                     ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -387,24 +815,58 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
                     child: Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.arrow_back_ios_new,
-                              color: Colors.white, size: 18),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                           onPressed: _exitReader,
                         ),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(book.title,
-                                  style: AppTypography.h3.copyWith(
-                                      color: Colors.white, fontSize: 13),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              Text('Page $_currentPage${_totalPages > 0 ? ' of $_totalPages' : ''}',
-                                  style: AppTypography.caption
-                                      .copyWith(color: Colors.white70)),
+                              Text(
+                                book.title,
+                                style: AppTypography.h3.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                'Page $_currentPage${_totalPages > 0 ? ' of $_totalPages' : ''}',
+                                style: AppTypography.caption.copyWith(
+                                  color: Colors.white70,
+                                ),
+                              ),
                             ],
                           ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _readingAloud
+                                ? Icons.stop_circle_outlined
+                                : (_loadingReadAloud
+                                      ? Icons.hourglass_empty
+                                      : Icons.volume_up_outlined),
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          onPressed: () => _toggleReadCurrentPage(filePath),
+                          tooltip: _readingAloud
+                              ? 'Stop read aloud'
+                              : 'Read aloud',
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.speed_outlined,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          onPressed: _showReadAloudSettings,
+                          tooltip: 'Read aloud speed',
                         ),
                         IconButton(
                           icon: Icon(
@@ -419,8 +881,11 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
                           tooltip: _nightMode ? 'Day mode' : 'Night mode',
                         ),
                         IconButton(
-                          icon: const Icon(Icons.tune,
-                              color: Colors.white, size: 20),
+                          icon: const Icon(
+                            Icons.tune,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                           onPressed: () => _showEditGoalSheet(book),
                           tooltip: 'Daily page goal',
                         ),
@@ -434,11 +899,15 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
               // bar takes over that space.
               if (_showControls && _selectedText == null)
                 Positioned(
-                  bottom: 0, left: 0, right: 0,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
                   child: Container(
                     padding: EdgeInsets.only(
                       bottom: MediaQuery.of(context).padding.bottom + 8,
-                      left: 16, right: 16, top: 8,
+                      left: 16,
+                      right: 16,
+                      top: 8,
                     ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -469,8 +938,11 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
                             ),
                             const SizedBox(width: 8),
                             if (book.dailyGoalMet)
-                              const Icon(Icons.check_circle,
-                                  size: 12, color: AppColors.success),
+                              const Icon(
+                                Icons.check_circle,
+                                size: 12,
+                                color: AppColors.success,
+                              ),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -479,7 +951,7 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
                           child: LinearProgressIndicator(
                             value: book.dailyPageGoal > 0
                                 ? (book.pagesReadToday / book.dailyPageGoal)
-                                    .clamp(0.0, 1.0)
+                                      .clamp(0.0, 1.0)
                                 : 0,
                             backgroundColor: Colors.white24,
                             valueColor: AlwaysStoppedAnimation(
@@ -497,15 +969,20 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
                             if (_totalPages > 0)
                               Text(
                                 '${(_currentPage / _totalPages * 100).toStringAsFixed(0)}% complete',
-                                style: AppTypography.caption
-                                    .copyWith(color: Colors.white70),
+                                style: AppTypography.caption.copyWith(
+                                  color: Colors.white70,
+                                ),
                               ),
                             const Spacer(),
                             TextButton(
                               onPressed: _markComplete,
-                              child: Text('MARK FINISHED',
-                                  style: AppTypography.label.copyWith(
-                                      color: AppColors.success, fontSize: 11)),
+                              child: Text(
+                                'MARK FINISHED',
+                                style: AppTypography.label.copyWith(
+                                  color: AppColors.success,
+                                  fontSize: 11,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -519,9 +996,12 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
               // to categorise the highlight; the bar disappears after saving.
               if (_selectedText != null && _selectedText!.isNotEmpty)
                 Positioned(
-                  left: 0, right: 0, bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: _SelectionActionBar(
                     text: _selectedText!,
+                    onSpeak: _speakText,
                     onSave: (type) => _saveSelection(type, book.title),
                   ),
                 ),
@@ -533,6 +1013,27 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
   }
 }
 
+class _ReadAloudPage {
+  final String text;
+  final List<_ReadAloudWord> words;
+
+  const _ReadAloudPage({required this.text, required this.words});
+}
+
+class _ReadAloudWord {
+  final String text;
+  final int startOffset;
+  final int endOffset;
+  final PdfTextLine pdfWord;
+
+  const _ReadAloudWord({
+    required this.text,
+    required this.startOffset,
+    required this.endOffset,
+    required this.pdfWord,
+  });
+}
+
 // ── Text-selection action bar ─────────────────────────────────────────────────
 //
 // Sits at the bottom of the screen whenever there is an active PDF text
@@ -541,8 +1042,13 @@ class _PdfReaderScreenState extends ConsumerState<PdfReaderScreen> {
 
 class _SelectionActionBar extends StatelessWidget {
   final String text;
+  final Future<void> Function(String text) onSpeak;
   final Future<void> Function(HighlightType type) onSave;
-  const _SelectionActionBar({required this.text, required this.onSave});
+  const _SelectionActionBar({
+    required this.text,
+    required this.onSpeak,
+    required this.onSave,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -567,14 +1073,20 @@ class _SelectionActionBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('SELECTED',
-                style: AppTypography.chip
-                    .copyWith(color: AppColors.textMuted, fontSize: 9)),
+            Text(
+              'SELECTED',
+              style: AppTypography.chip.copyWith(
+                color: AppColors.textMuted,
+                fontSize: 9,
+              ),
+            ),
             const SizedBox(height: 4),
             Text(
               text,
-              style: AppTypography.caption
-                  .copyWith(color: AppColors.textPrimary, fontSize: 12),
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 12,
+              ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -582,22 +1094,29 @@ class _SelectionActionBar extends StatelessWidget {
             Row(
               children: [
                 _SelectionBtn(
+                  label: 'LISTEN',
+                  icon: Icons.volume_up_outlined,
+                  color: AppColors.accent,
+                  onTap: () => onSpeak(text),
+                ),
+                const SizedBox(width: 8),
+                _SelectionBtn(
                   label: 'HIGHLIGHT',
-                  icon:  Icons.bookmark_outline,
+                  icon: Icons.bookmark_outline,
                   color: const Color(0xFFE5B800),
                   onTap: () => onSave(HighlightType.noted),
                 ),
                 const SizedBox(width: 8),
                 _SelectionBtn(
                   label: 'VOCAB',
-                  icon:  Icons.spellcheck,
+                  icon: Icons.spellcheck,
                   color: const Color(0xFF4A9EFF),
                   onTap: () => onSave(HighlightType.vocab),
                 ),
                 const SizedBox(width: 8),
                 _SelectionBtn(
                   label: 'IDEA',
-                  icon:  Icons.lightbulb_outline,
+                  icon: Icons.lightbulb_outline,
                   color: AppColors.success,
                   onTap: () => onSave(HighlightType.idea),
                 ),
@@ -638,13 +1157,15 @@ class _SelectionBtn extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(height: 4),
-              Text(label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1,
-                  )),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
             ],
           ),
         ),

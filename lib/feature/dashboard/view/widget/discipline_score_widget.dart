@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/widgets/glossy_card.dart';
 import '../../model/dashboard_state_model.dart';
 
 class DisciplineScoreWidget extends StatelessWidget {
@@ -50,15 +51,7 @@ class DisciplineScoreWidget extends StatelessWidget {
 
         // ── Discipline Score ───────────────────────────────────────────
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(AppSpacing.cardPad),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius:
-                  BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(
-                  color: AppColors.border, width: 0.5),
-            ),
+          child: GlossyCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -105,15 +98,8 @@ class DisciplineScoreWidget extends StatelessWidget {
 
         // ── Mental Readiness (auto-derived) ────────────────────────────
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(AppSpacing.cardPad),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius:
-                  BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(
-                  color: AppColors.border, width: 0.5),
-            ),
+          child: GlossyCard(
+            accentBorder: readinessColor,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

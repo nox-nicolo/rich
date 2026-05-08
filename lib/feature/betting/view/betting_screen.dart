@@ -13,11 +13,12 @@ import 'widget/lockdown_widget.dart';
 import 'widget/cooldown_timer_widget.dart';
 import 'widget/betting_plan_widget.dart';
 import 'widget/betting_history_widget.dart';
+import 'widget/sport_news_widget.dart';
 
 class BettingScreen extends ConsumerWidget {
   const BettingScreen({super.key});
 
-  static const _tabs = ['OVERVIEW', 'PLAN', 'BETS', 'HISTORY', 'SLIP', 'LOCKDOWN'];
+  static const _tabs = ['OVERVIEW', 'PLAN', 'BETS', 'NEWS', 'HISTORY', 'SLIP', 'LOCKDOWN'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -106,6 +107,13 @@ class BettingScreen extends ConsumerWidget {
           physics: BouncingScrollPhysics(),
           padding: EdgeInsets.all(AppSpacing.lg),
           child: RunningCountWidget(),
+        );
+      case 'NEWS':
+        // No outer padding/scroll wrapper — SportNewsWidget owns its own
+        // header (sport selector) + RefreshIndicator-pull-to-reload list.
+        return const Padding(
+          padding: EdgeInsets.only(top: AppSpacing.md),
+          child: SportNewsWidget(),
         );
       case 'HISTORY':
         return const SingleChildScrollView(

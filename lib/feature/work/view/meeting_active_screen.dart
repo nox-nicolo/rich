@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../model/meeting_model.dart';
 import '../viewmodel/work_viewmodel.dart';
@@ -42,6 +43,8 @@ class _MeetingActiveScreenState extends ConsumerState<MeetingActiveScreen>
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
 
+    WakelockPlus.enable();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref
           .read(workViewModelProvider.notifier)
@@ -61,6 +64,11 @@ class _MeetingActiveScreenState extends ConsumerState<MeetingActiveScreen>
       setState(() => _meeting = null);
       return;
     }
+    // If actualStart is still missing (e.g. stale state before startMeeting
+    // finished), kick startMeeting again — it now always sets actualStart.
+    if (m.actualStart == null) {
+      ref.read(workViewModelProvider.notifier).startMeeting(widget.meetingId);
+    }
     final start = m.actualStart ?? DateTime.now();
     setState(() {
       _meeting = m;
@@ -73,6 +81,7 @@ class _MeetingActiveScreenState extends ConsumerState<MeetingActiveScreen>
   void dispose() {
     _ticker?.cancel();
     _pulse.dispose();
+    WakelockPlus.disable();
     super.dispose();
   }
 
@@ -87,6 +96,22 @@ class _MeetingActiveScreenState extends ConsumerState<MeetingActiveScreen>
         ? '${_two(h)}:${_two(m)}:${_two(sec)}'
         : '${_two(m)}:${_two(sec)}';
   }
+
+  String _remainingDisplay(MeetingModel meeting) {
+    final planned = Duration(minutes: meeting.durationMinutes);
+    final remaining = planned - _elapsed;
+    final d = remaining.isNegative ? (_elapsed - planned) : remaining;
+    final h = d.inSeconds ~/ 3600;
+    final m = (d.inSeconds % 3600) ~/ 60;
+    final s = d.inSeconds % 60;
+    final body = h > 0
+        ? '${_two(h)}:${_two(m)}:${_two(s)}'
+        : '${_two(m)}:${_two(s)}';
+    return remaining.isNegative ? '+$body' : body;
+  }
+
+  bool _isOvertime(MeetingModel meeting) =>
+      _elapsed.inMinutes >= meeting.durationMinutes;
 
   @override
   Widget build(BuildContext context) {
@@ -180,17 +205,71 @@ class _MeetingActiveScreenState extends ConsumerState<MeetingActiveScreen>
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            Text(
-              _elapsedDisplay,
-              style: const TextStyle(
-                color: Colors.white54,
-                fontFamily: 'monospace',
-                fontFeatures: [FontFeature.tabularFigures()],
-                fontSize: 22,
-                letterSpacing: 2,
-              ),
+            // Elapsed | Remaining — side-by-side with clear labels and divider
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Column(
+                  children: [
+                    const Text(
+                      'ELAPSED',
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 9,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _elapsedDisplay,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'monospace',
+                        fontFeatures: [FontFeature.tabularFigures()],
+                        fontSize: 18,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  width: 1,
+                  height: 30,
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  color: Colors.white12,
+                ),
+                Column(
+                  children: [
+                    Text(
+                      _isOvertime(meeting) ? 'OVER' : 'LEFT',
+                      style: TextStyle(
+                        color: _isOvertime(meeting)
+                            ? const Color(0xFFFF3B30)
+                            : _micGreen,
+                        fontSize: 9,
+                        letterSpacing: 2,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _remainingDisplay(meeting),
+                      style: TextStyle(
+                        color: _isOvertime(meeting)
+                            ? const Color(0xFFFF3B30)
+                            : _micGreen,
+                        fontFamily: 'monospace',
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        fontSize: 18,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
 
             const Spacer(),
@@ -225,28 +304,29 @@ class _MeetingActiveScreenState extends ConsumerState<MeetingActiveScreen>
                 ),
               ),
 
-            // End meeting
+            // End meeting — solid filled button for clear tap target
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
               child: SizedBox(
                 width: double.infinity,
-                child: OutlinedButton(
+                child: ElevatedButton(
                   onPressed: () => _endMeeting(context),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(
-                        color: Color(0xFFFF3B30), width: 0.8),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF3B30),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    elevation: 0,
                   ),
                   child: const Text(
                     'END MEETING',
                     style: TextStyle(
-                      color: Color(0xFFFF3B30),
-                      fontSize: 12,
+                      color: Colors.white,
+                      fontSize: 13,
                       letterSpacing: 3,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -259,16 +339,38 @@ class _MeetingActiveScreenState extends ConsumerState<MeetingActiveScreen>
   }
 
   Future<void> _endMeeting(BuildContext context) async {
-    await ref
-        .read(workViewModelProvider.notifier)
-        .endMeeting(widget.meetingId);
-    if (!context.mounted) return;
-    _exit(context);
+    // Stop the per-second ticker so it can't keep refreshing _meeting and
+    // hold the screen alive after we navigate.
+    _ticker?.cancel();
+    _ticker = null;
+
+    // Capture the notifier and id BEFORE we navigate — `ref` may not be
+    // valid once this widget is disposed.
+    final notifier = ref.read(workViewModelProvider.notifier);
+    final meetingId = widget.meetingId;
+
+    // Navigate away IMMEDIATELY so the user sees the screen close. Don't
+    // wait for state updates — they can finish in the background.
+    if (context.mounted) {
+      _exit(context);
+    }
+
+    // Persist the end-of-meeting state in the background (fire-and-forget).
+    // Errors are swallowed so a hung tracking/notification call can't strand
+    // the user on the live screen.
+    () async {
+      try {
+        await notifier.endMeeting(meetingId);
+      } catch (_) {}
+    }();
   }
 
   void _exit(BuildContext context) {
-    if (context.canPop()) {
-      context.pop();
+    // Use Flutter's Navigator first (most reliable), falling back to
+    // go_router only if there's no route to pop.
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
     } else {
       context.go('/work');
     }

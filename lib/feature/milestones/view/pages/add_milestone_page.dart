@@ -18,9 +18,10 @@ class AddMilestonePage extends ConsumerStatefulWidget {
 }
 
 class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
-  final _formKey   = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
-  final _noteCtrl  = TextEditingController();
+  final _noteCtrl = TextEditingController();
+  final _processCtrl = TextEditingController();
 
   late Horizon _horizon;
   late DateTime _targetDate;
@@ -34,16 +35,17 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
     final e = widget.existing;
     if (e != null) {
       _titleCtrl.text = e.title;
-      _noteCtrl.text  = e.note ?? '';
-      _horizon        = e.horizon;
-      _targetDate     = e.targetDate;
-      _progress       = e.progress;
-      _status         = e.status;
+      _noteCtrl.text = e.note ?? '';
+      _processCtrl.text = e.processSteps.join('\n');
+      _horizon = e.horizon;
+      _targetDate = e.targetDate;
+      _progress = e.progress;
+      _status = e.status;
     } else {
-      _horizon    = Horizon.sixMonth;
+      _horizon = Horizon.sixMonth;
       _targetDate = defaultTargetFor(Horizon.sixMonth);
-      _progress   = 0;
-      _status     = MilestoneStatus.active;
+      _progress = 0;
+      _status = MilestoneStatus.active;
     }
   }
 
@@ -51,6 +53,7 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
   void dispose() {
     _titleCtrl.dispose();
     _noteCtrl.dispose();
+    _processCtrl.dispose();
     super.dispose();
   }
 
@@ -71,10 +74,10 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
     // outside the window after a horizon switch.
     final initial = _targetDate.isAfter(last) ? last : _targetDate;
     final picked = await showDatePicker(
-      context:    context,
+      context: context,
       initialDate: initial,
-      firstDate:   now,
-      lastDate:    last,
+      firstDate: now,
+      lastDate: last,
     );
     if (picked != null) setState(() => _targetDate = picked);
   }
@@ -85,34 +88,37 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
     try {
       final vm = ref.read(milestoneViewModelProvider.notifier);
       final existing = widget.existing;
+      final processSteps = _parseProcessSteps(_processCtrl.text);
 
       // Progress=100% implies done. Status already pinned to done by any
       // explicit MARK DONE tap, so either path funnels here.
-      final effectiveStatus = _progress >= 1.0
-          ? MilestoneStatus.done
-          : _status;
+      final effectiveStatus = _progress >= 1.0 ? MilestoneStatus.done : _status;
 
       final wasDone = existing?.status == MilestoneStatus.done;
-      final isDone  = effectiveStatus == MilestoneStatus.done;
+      final isDone = effectiveStatus == MilestoneStatus.done;
       final justReached = !wasDone && isDone;
 
       if (existing == null) {
         await vm.create(
-          title:      _titleCtrl.text.trim(),
-          note:       _noteCtrl.text.trim(),
-          horizon:    _horizon,
+          title: _titleCtrl.text.trim(),
+          note: _noteCtrl.text.trim(),
+          processSteps: processSteps,
+          horizon: _horizon,
           targetDate: _targetDate,
         );
       } else {
-        await vm.update(existing.copyWith(
-          title:      _titleCtrl.text.trim(),
-          note:       _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-          clearNote:  _noteCtrl.text.trim().isEmpty,
-          horizon:    _horizon,
-          targetDate: _targetDate,
-          progress:   _progress,
-          status:     effectiveStatus,
-        ));
+        await vm.update(
+          existing.copyWith(
+            title: _titleCtrl.text.trim(),
+            note: _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
+            clearNote: _noteCtrl.text.trim().isEmpty,
+            processSteps: processSteps,
+            horizon: _horizon,
+            targetDate: _targetDate,
+            progress: _progress,
+            status: effectiveStatus,
+          ),
+        );
       }
 
       if (justReached) {
@@ -140,6 +146,12 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
     }
   }
 
+  List<String> _parseProcessSteps(String raw) => raw
+      .split('\n')
+      .map((step) => step.trim())
+      .where((step) => step.isNotEmpty)
+      .toList();
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
@@ -147,11 +159,16 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: Text(isEdit ? 'EDIT MILESTONE' : 'NEW MILESTONE',
-            style: AppTypography.label.copyWith(fontSize: 12)),
+        title: Text(
+          isEdit ? 'EDIT MILESTONE' : 'NEW MILESTONE',
+          style: AppTypography.label.copyWith(fontSize: 12),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.close,
-              size: AppSpacing.iconMd, color: AppColors.textSecondary),
+          icon: const Icon(
+            Icons.close,
+            size: AppSpacing.iconMd,
+            color: AppColors.textSecondary,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
@@ -159,12 +176,19 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
             onPressed: _saving ? null : _save,
             child: _saving
                 ? const SizedBox(
-                    width: 16, height: 16,
+                    width: 16,
+                    height: 16,
                     child: CircularProgressIndicator(
-                        strokeWidth: 1.5, color: AppColors.success))
-                : Text('SAVE',
-                    style: AppTypography.label
-                        .copyWith(color: AppColors.success)),
+                      strokeWidth: 1.5,
+                      color: AppColors.success,
+                    ),
+                  )
+                : Text(
+                    'SAVE',
+                    style: AppTypography.label.copyWith(
+                      color: AppColors.success,
+                    ),
+                  ),
           ),
           const SizedBox(width: AppSpacing.md),
         ],
@@ -181,15 +205,15 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
               Row(
                 children: [
                   _HorizonPill(
-                    label:    '6 MONTHS',
+                    label: '6 MONTHS',
                     selected: _horizon == Horizon.sixMonth,
-                    onTap:    () => _switchHorizon(Horizon.sixMonth),
+                    onTap: () => _switchHorizon(Horizon.sixMonth),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   _HorizonPill(
-                    label:    'YEAR',
+                    label: 'YEAR',
                     selected: _horizon == Horizon.yearly,
-                    onTap:    () => _switchHorizon(Horizon.yearly),
+                    onTap: () => _switchHorizon(Horizon.yearly),
                   ),
                 ],
               ),
@@ -199,7 +223,9 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
               const SizedBox(height: AppSpacing.xs),
               TextFormField(
                 controller: _titleCtrl,
-                style: AppTypography.body.copyWith(color: AppColors.textPrimary),
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textPrimary,
+                ),
                 decoration: _inputDec('e.g. Read 24 books'),
                 validator: (v) =>
                     v == null || v.trim().isEmpty ? 'Required' : null,
@@ -211,8 +237,30 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
               TextFormField(
                 controller: _noteCtrl,
                 maxLines: 3,
-                style: AppTypography.body.copyWith(color: AppColors.textPrimary),
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textPrimary,
+                ),
                 decoration: _inputDec('What does success look like?'),
+              ),
+              const SizedBox(height: AppSpacing.md),
+
+              Text('PROCESS / STEPS', style: AppTypography.label),
+              const SizedBox(height: AppSpacing.xs),
+              TextFormField(
+                controller: _processCtrl,
+                minLines: 4,
+                maxLines: 8,
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+                decoration: _inputDec(
+                  'One step per line\nExample: Finish outline\nExample: Practice every weekday',
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Define the path to the milestone. Keep each step concrete.',
+                style: AppTypography.caption,
               ),
               const SizedBox(height: AppSpacing.md),
 
@@ -229,16 +277,19 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.calendar_today_outlined,
-                          size: AppSpacing.iconSm,
-                          color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: AppSpacing.iconSm,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: AppSpacing.md),
                       Text(
                         '${_targetDate.day.toString().padLeft(2, '0')}/'
                         '${_targetDate.month.toString().padLeft(2, '0')}/'
                         '${_targetDate.year}',
-                        style: AppTypography.body
-                            .copyWith(color: AppColors.textPrimary),
+                        style: AppTypography.body.copyWith(
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                       const Spacer(),
                       Text(
@@ -263,7 +314,7 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
                 const SizedBox(height: AppSpacing.lg),
                 _ProgressSection(
                   progress: _progress,
-                  status:   _status,
+                  status: _status,
                   onChanged: (v) => setState(() => _progress = v),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -271,7 +322,7 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
                   status: _status,
                   onMarkDone: () => setState(() {
                     _progress = 1.0;
-                    _status   = MilestoneStatus.done;
+                    _status = MilestoneStatus.done;
                   }),
                   onReactivate: () => setState(() {
                     _status = MilestoneStatus.active;
@@ -294,21 +345,21 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
                             context: context,
                             builder: (ctx) => AlertDialog(
                               backgroundColor: AppColors.surface,
-                              title: Text('Delete milestone?',
-                                  style: AppTypography.h3),
+                              title: Text(
+                                'Delete milestone?',
+                                style: AppTypography.h3,
+                              ),
                               content: Text(
                                 'This cannot be undone.',
                                 style: AppTypography.body,
                               ),
                               actions: [
                                 TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(ctx).pop(false),
+                                  onPressed: () => Navigator.of(ctx).pop(false),
                                   child: const Text('Cancel'),
                                 ),
                                 TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(ctx).pop(true),
+                                  onPressed: () => Navigator.of(ctx).pop(true),
                                   child: const Text('Delete'),
                                 ),
                               ],
@@ -321,9 +372,12 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
                           if (!context.mounted) return;
                           Navigator.of(context).pop();
                         },
-                  child: Text('DELETE',
-                      style: AppTypography.label
-                          .copyWith(color: AppColors.warning)),
+                  child: Text(
+                    'DELETE',
+                    style: AppTypography.label.copyWith(
+                      color: AppColors.warning,
+                    ),
+                  ),
                 ),
             ],
           ),
@@ -333,27 +387,27 @@ class _AddMilestonePageState extends ConsumerState<AddMilestonePage> {
   }
 
   InputDecoration _inputDec(String hint) => InputDecoration(
-        hintText: hint,
-        hintStyle: AppTypography.body.copyWith(color: AppColors.textMuted),
-        filled: true,
-        fillColor: AppColors.surface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          borderSide: const BorderSide(color: AppColors.border, width: 0.5),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          borderSide: const BorderSide(color: AppColors.border, width: 0.5),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          borderSide: const BorderSide(color: AppColors.accent, width: 1),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical:   AppSpacing.md,
-        ),
-      );
+    hintText: hint,
+    hintStyle: AppTypography.body.copyWith(color: AppColors.textMuted),
+    filled: true,
+    fillColor: AppColors.surface,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      borderSide: const BorderSide(color: AppColors.border, width: 0.5),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      borderSide: const BorderSide(color: AppColors.border, width: 0.5),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      borderSide: const BorderSide(color: AppColors.accent, width: 1),
+    ),
+    contentPadding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: AppSpacing.md,
+    ),
+  );
 }
 
 class _ProgressSection extends StatelessWidget {
@@ -373,8 +427,8 @@ class _ProgressSection extends StatelessWidget {
     final accent = status == MilestoneStatus.done
         ? AppColors.success
         : status == MilestoneStatus.dropped
-            ? AppColors.textMuted
-            : AppColors.accent;
+        ? AppColors.textMuted
+        : AppColors.accent;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.cardPad),
@@ -390,27 +444,26 @@ class _ProgressSection extends StatelessWidget {
             children: [
               Text('PROGRESS', style: AppTypography.label),
               const Spacer(),
-              Text('$pct%',
-                  style: AppTypography.mono.copyWith(
-                    color: accent,
-                    fontSize: 14,
-                  )),
+              Text(
+                '$pct%',
+                style: AppTypography.mono.copyWith(color: accent, fontSize: 14),
+              ),
             ],
           ),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor:   accent,
+              activeTrackColor: accent,
               inactiveTrackColor: AppColors.elevated,
-              thumbColor:         accent,
-              overlayColor:       accent.withValues(alpha: 0.15),
-              trackHeight:        4,
+              thumbColor: accent,
+              overlayColor: accent.withValues(alpha: 0.15),
+              trackHeight: 4,
             ),
             child: Slider(
-              value:      progress.clamp(0.0, 1.0),
-              min:        0,
-              max:        1,
-              divisions:  20,
-              onChanged:  onChanged,
+              value: progress.clamp(0.0, 1.0),
+              min: 0,
+              max: 1,
+              divisions: 20,
+              onChanged: onChanged,
             ),
           ),
           Text(
@@ -519,7 +572,9 @@ class _HorizonPill extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: selected ? AppColors.accent : AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusFull),

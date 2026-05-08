@@ -59,6 +59,7 @@ dependencies:
 
   # Utilities
   uuid: ^4.5.1
+  image: ^4.8.0
 
   # Foreground service for overlay
   flutter_foreground_task: ^8.13.4
@@ -71,14 +72,20 @@ dependencies:
 
   # PDF viewer (in-app reading)
   syncfusion_flutter_pdfviewer: ^27.1.48
+  syncfusion_flutter_pdf: ^27.1.48
 
   # PDF cover thumbnail rendering (shelf)
   pdfx: ^2.9.0
+
+  flutter_tts: ^4.0.2
+  speech_to_text: ^7.3.0
 
   # Security
   flutter_secure_storage: ^9.2.2
   crypto: ^3.0.3
   local_auth: ^2.3.0
+  wakelock_plus: ^1.5.2
+  audioplayers: ^6.6.0
 
 dev_dependencies:
   flutter_test:
@@ -93,6 +100,7 @@ dev_dependencies:
 
   # Launcher icon generator
   flutter_launcher_icons: ^0.14.1
+  build_runner: ^2.15.0
 
 flutter_launcher_icons:
   image_path: "assets/icon/app_icon.png"

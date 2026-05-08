@@ -24,6 +24,10 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Rich uses the microphone so you can practice speaking languages with the AI tutor.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Rich uses speech recognition to turn your spoken language practice into text.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

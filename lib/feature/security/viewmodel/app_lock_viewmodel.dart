@@ -146,17 +146,17 @@ class AppLockViewModel extends StateNotifier<AppLockState>
   // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState appState) {
-    if (!state.isAppLockEnabled) return;
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!this.state.isAppLockEnabled) return;
 
-    if (appState == AppLifecycleState.paused ||
-        appState == AppLifecycleState.inactive ||
-        appState == AppLifecycleState.hidden) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
       _handleBackgrounded();
       return;
     }
 
-    if (appState == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed) {
       _handleResumed();
     }
   }

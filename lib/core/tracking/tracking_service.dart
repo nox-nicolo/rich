@@ -22,7 +22,7 @@ import 'tracking_feature.dart';
 class TrackingService {
   TrackingService._();
 
-  static const int retentionDays = 35;
+  static const int retentionDays = 24;
 
   // ── Recording ──────────────────────────────────────────────────────────
 
@@ -47,6 +47,10 @@ class TrackingService {
       final next = entry.value;
       if (prev is num && next is num) {
         merged[entry.key] = prev + next;
+      } else if (prev is List && next is List) {
+        // Lists (e.g. taskItems, meetingItems) get concatenated so every
+        // task/meeting completed during the day is preserved for the report.
+        merged[entry.key] = [...prev, ...next];
       } else {
         merged[entry.key] = next;
       }

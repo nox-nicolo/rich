@@ -383,7 +383,7 @@ class _TradeEntrySheetState extends State<_TradeEntrySheet> {
                   Switch(
                     value: closeMode,
                     onChanged: (v) => setState(() => closeMode = v),
-                    activeColor: AppColors.accent,
+                    activeThumbColor: AppColors.accent,
                   ),
                   const SizedBox(width: 4),
                   Text('Close this trade', style: AppTypography.caption),

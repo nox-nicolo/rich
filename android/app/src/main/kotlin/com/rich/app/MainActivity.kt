@@ -1,4 +1,4 @@
-package com.example.rich
+package com.rich.app
 
 import android.content.Intent
 import android.net.Uri
@@ -12,6 +12,7 @@ class MainActivity : FlutterFragmentActivity() {
 
     private val overlayChannel    = "com.rich.app/overlay"
     private val screenshotChannel = "com.rich.app/screenshot"
+    private val widgetChannel     = "com.rich.app/widget"
     private val requestOverlayCode = 1001
 
     private var overlayPendingResult: MethodChannel.Result? = null
@@ -20,6 +21,7 @@ class MainActivity : FlutterFragmentActivity() {
         super.configureFlutterEngine(flutterEngine)
         setupOverlayChannel(flutterEngine)
         setupScreenshotChannel(flutterEngine)
+        setupWidgetChannel(flutterEngine)
     }
 
     // ── Overlay Channel ───────────────────────────────────────────────────────
@@ -118,10 +120,38 @@ class MainActivity : FlutterFragmentActivity() {
             screenshotChannel
         ).setMethodCallHandler { call, result ->
             when (call.method) {
-                // Full MediaProjection capture needs runtime permission grant.
-                // Return null — Flutter falls back to widget-tree capture.
                 "captureScreen" -> result.success(null)
                 else            -> result.notImplemented()
+            }
+        }
+    }
+
+    // ── Widget Snapshot Channel ──────────────────────────────────────────────
+
+    private fun setupWidgetChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            widgetChannel
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "saveSnapshot" -> {
+                    val args = call.arguments as? Map<*, *>
+                    if (args == null) {
+                        result.error("BAD_ARGS", "Expected widget snapshot map", null)
+                        return@setMethodCallHandler
+                    }
+
+                    val prefs = getSharedPreferences("rich_widget_snapshot", MODE_PRIVATE)
+                    val editor = prefs.edit()
+                    for ((key, value) in args) {
+                        if (key is String) editor.putString(key, value?.toString() ?: "")
+                    }
+                    editor.apply()
+                    RichWidgetUpdater.updateAll(this)
+                    result.success(null)
+                }
+
+                else -> result.notImplemented()
             }
         }
     }

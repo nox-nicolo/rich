@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#FFFFFF</color>
+    <color name="rich_widget_bg">#101215</color>
+    <color name="rich_widget_panel">#181B20</color>
+    <color name="rich_widget_border">#2B3038</color>
+    <color name="rich_widget_text">#F4F6F8</color>
+    <color name="rich_widget_muted">#9AA4B2</color>
+    <color name="rich_widget_accent">#D6FF3F</color>
+    <color name="rich_widget_good">#41D37D</color>
 </resources>

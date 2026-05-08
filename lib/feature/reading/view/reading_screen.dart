@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -23,35 +24,39 @@ class ReadingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(readingViewModelProvider);
-    final vm    = ref.read(readingViewModelProvider.notifier);
+    final vm = ref.read(readingViewModelProvider.notifier);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: Text('READING',
-            style: AppTypography.label.copyWith(
-                color: AppColors.textPrimary, letterSpacing: 3)),
+        title: Text(
+          'READING',
+          style: AppTypography.label.copyWith(
+            color: AppColors.textPrimary,
+            letterSpacing: 3,
+          ),
+        ),
         centerTitle: false,
         actions: [
           if (state.currentlyReading.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: AppSpacing.lg),
-              child: _StatusChip(
-                label: 'READING',
-                color: AppColors.accent,
-              ),
+              child: _StatusChip(label: 'READING', color: AppColors.accent),
             ),
         ],
       ),
       body: state.isLoading
           ? const Center(
               child: CircularProgressIndicator(
-                  color: AppColors.accent, strokeWidth: 1))
+                color: AppColors.accent,
+                strokeWidth: 1,
+              ),
+            )
           : Column(
               children: [
                 _ReadingTabBar(
-                  tabs:     _tabs,
+                  tabs: _tabs,
                   selected: state.activeTab,
                   onSelect: vm.setTab,
                 ),
@@ -61,26 +66,33 @@ class ReadingScreen extends ConsumerWidget {
     );
   }
 
-  Widget _tabContent(BuildContext context, WidgetRef ref,
-      ReadingState state, ReadingViewModel vm) {
+  Widget _tabContent(
+    BuildContext context,
+    WidgetRef ref,
+    ReadingState state,
+    ReadingViewModel vm,
+  ) {
     switch (state.activeTab) {
       case 'SHELF':
         return _ShelfTab(state: state, vm: vm);
       case 'HIGHLIGHTS':
         return const SingleChildScrollView(
-            physics: BouncingScrollPhysics(),
-            padding: EdgeInsets.all(AppSpacing.lg),
-            child: HighlightsWidget());
+          physics: BouncingScrollPhysics(),
+          padding: EdgeInsets.all(AppSpacing.lg),
+          child: HighlightsWidget(),
+        );
       case 'VAULT':
         return const SingleChildScrollView(
-            physics: BouncingScrollPhysics(),
-            padding: EdgeInsets.all(AppSpacing.lg),
-            child: KnowledgeVaultWidget());
+          physics: BouncingScrollPhysics(),
+          padding: EdgeInsets.all(AppSpacing.lg),
+          child: KnowledgeVaultWidget(),
+        );
       case 'RETAIN':
         return const SingleChildScrollView(
-            physics: BouncingScrollPhysics(),
-            padding: EdgeInsets.all(AppSpacing.lg),
-            child: RetentionPromptWidget());
+          physics: BouncingScrollPhysics(),
+          padding: EdgeInsets.all(AppSpacing.lg),
+          child: RetentionPromptWidget(),
+        );
       case 'VOCAB':
         return _VocabTab(state: state, vm: vm);
       default:
@@ -92,7 +104,7 @@ class ReadingScreen extends ConsumerWidget {
 // ── Shelf Tab ─────────────────────────────────────────────────────────────────
 
 class _ShelfTab extends ConsumerWidget {
-  final ReadingState    state;
+  final ReadingState state;
   final ReadingViewModel vm;
   const _ShelfTab({required this.state, required this.vm});
 
@@ -107,34 +119,46 @@ class _ShelfTab extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.menu_book_outlined,
-                        size: 48, color: AppColors.textMuted),
+                    const Icon(
+                      Icons.menu_book_outlined,
+                      size: 48,
+                      color: AppColors.textMuted,
+                    ),
                     const SizedBox(height: 16),
                     Text('No books yet', style: AppTypography.body),
                     const SizedBox(height: 8),
-                    Text('Tap + to add a PDF from your device',
-                        style: AppTypography.caption),
+                    Text(
+                      'Tap + to add a PDF from your device',
+                      style: AppTypography.caption,
+                    ),
                   ],
                 ),
               )
             : ListView(
                 padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 100),
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  100,
+                ),
                 children: [
                   // Currently reading
                   if (state.currentlyReading.isNotEmpty) ...[
-                    Text('NOW READING',
-                        style: AppTypography.chip
-                            .copyWith(color: AppColors.textMuted)),
+                    Text(
+                      'NOW READING',
+                      style: AppTypography.chip.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.sm),
                     _ReorderableSection(
                       books: state.currentlyReading,
                       onReorder: (o, n) =>
                           vm.reorderBooks(BookStatus.reading, o, n),
                       buildCard: (b) => _BookCard(
-                        book:       b,
-                        canOpen:    true,
-                        onTap:      () => _openBook(context, ref, b),
+                        book: b,
+                        canOpen: true,
+                        onTap: () => _openBook(context, ref, b),
                         onMarkDone: () => vm.markCompleted(b.id),
                       ),
                     ),
@@ -143,9 +167,12 @@ class _ShelfTab extends ConsumerWidget {
 
                   // Wishlist / queued
                   if (books.any((b) => b.status == BookStatus.wishlist)) ...[
-                    Text('UP NEXT',
-                        style: AppTypography.chip
-                            .copyWith(color: AppColors.textMuted)),
+                    Text(
+                      'UP NEXT',
+                      style: AppTypography.chip.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.sm),
                     _ReorderableSection(
                       books: books
@@ -154,10 +181,10 @@ class _ShelfTab extends ConsumerWidget {
                       onReorder: (o, n) =>
                           vm.reorderBooks(BookStatus.wishlist, o, n),
                       buildCard: (b) => _BookCard(
-                        book:       b,
-                        canOpen:    state.currentlyReading.isEmpty,
-                        locked:     state.currentlyReading.isNotEmpty,
-                        onTap:      state.currentlyReading.isEmpty
+                        book: b,
+                        canOpen: state.currentlyReading.isEmpty,
+                        locked: state.currentlyReading.isNotEmpty,
+                        onTap: state.currentlyReading.isEmpty
                             ? () => _openBook(context, ref, b)
                             : () => _showLockMessage(context),
                         onMarkDone: () => vm.markCompleted(b.id),
@@ -168,18 +195,21 @@ class _ShelfTab extends ConsumerWidget {
 
                   // Completed
                   if (state.completedBooks.isNotEmpty) ...[
-                    Text('COMPLETED',
-                        style: AppTypography.chip
-                            .copyWith(color: AppColors.textMuted)),
+                    Text(
+                      'COMPLETED',
+                      style: AppTypography.chip.copyWith(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
                     const SizedBox(height: AppSpacing.sm),
                     _ReorderableSection(
                       books: state.completedBooks,
                       onReorder: (o, n) =>
                           vm.reorderBooks(BookStatus.completed, o, n),
                       buildCard: (b) => _BookCard(
-                        book:       b,
-                        canOpen:    true,
-                        onTap:      () => _openBook(context, ref, b),
+                        book: b,
+                        canOpen: true,
+                        onTap: () => _openBook(context, ref, b),
                         onMarkDone: null,
                       ),
                     ),
@@ -194,7 +224,7 @@ class _ShelfTab extends ConsumerWidget {
           child: FloatingActionButton(
             backgroundColor: AppColors.accent,
             foregroundColor: AppColors.background,
-            onPressed:       () => _showAddBookSheet(context, ref),
+            onPressed: () => _showAddBookSheet(context, ref),
             child: const Icon(Icons.add),
           ),
         ),
@@ -222,10 +252,10 @@ class _ShelfTab extends ConsumerWidget {
   }
 
   void _showAddBookSheet(BuildContext context, WidgetRef ref) {
-    final vm          = ref.read(readingViewModelProvider.notifier);
-    final titleCtrl   = TextEditingController();
-    final authorCtrl  = TextEditingController();
-    final goalCtrl    = TextEditingController(text: '20');
+    final vm = ref.read(readingViewModelProvider.notifier);
+    final titleCtrl = TextEditingController();
+    final authorCtrl = TextEditingController();
+    final goalCtrl = TextEditingController(text: '20');
     String? pickedPath;
     BookCategory category = BookCategory.other;
 
@@ -234,19 +264,31 @@ class _ShelfTab extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setBS) => Padding(
           padding: EdgeInsets.fromLTRB(
-              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            20,
+            20,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(child: Container(width: 36, height: 3,
-                    decoration: BoxDecoration(color: AppColors.border,
-                        borderRadius: BorderRadius.circular(2)))),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Text('ADD BOOK', style: AppTypography.label),
                 const SizedBox(height: 16),
@@ -277,10 +319,11 @@ class _ShelfTab extends ConsumerWidget {
                           : AppColors.surfaceVar,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: pickedPath != null
-                              ? AppColors.success.withValues(alpha: 0.4)
-                              : AppColors.border,
-                          width: 0.5),
+                        color: pickedPath != null
+                            ? AppColors.success.withValues(alpha: 0.4)
+                            : AppColors.border,
+                        width: 0.5,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -300,9 +343,10 @@ class _ShelfTab extends ConsumerWidget {
                                 ? pickedPath!.split('/').last
                                 : 'Pick PDF from device',
                             style: AppTypography.body.copyWith(
-                                color: pickedPath != null
-                                    ? AppColors.textPrimary
-                                    : AppColors.textMuted),
+                              color: pickedPath != null
+                                  ? AppColors.textPrimary
+                                  : AppColors.textMuted,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -314,39 +358,46 @@ class _ShelfTab extends ConsumerWidget {
                 const SizedBox(height: 10),
                 TextField(
                   controller: titleCtrl,
-                  style: AppTypography.body
-                      .copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: const InputDecoration(hintText: 'Book title'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: authorCtrl,
-                  style: AppTypography.body
-                      .copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: const InputDecoration(hintText: 'Author'),
                 ),
                 const SizedBox(height: 10),
 
                 // Category
                 DropdownButtonFormField<BookCategory>(
-                  value: category,
+                  initialValue: category,
                   dropdownColor: AppColors.surface,
-                  style: AppTypography.body
-                      .copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: const InputDecoration(hintText: 'Category'),
-                  items: BookCategory.values.map((c) => DropdownMenuItem(
-                    value: c,
-                    child: Text(c.label),
-                  )).toList(),
-                  onChanged: (v) { if (v != null) setBS(() => category = v); },
+                  items: BookCategory.values
+                      .map(
+                        (c) => DropdownMenuItem(value: c, child: Text(c.label)),
+                      )
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setBS(() => category = v);
+                  },
                 ),
 
                 const SizedBox(height: 10),
                 TextField(
                   controller: goalCtrl,
                   keyboardType: TextInputType.number,
-                  style: AppTypography.body
-                      .copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                   decoration: const InputDecoration(
                     hintText: 'Daily page goal (e.g. 20)',
                   ),
@@ -361,25 +412,30 @@ class _ShelfTab extends ConsumerWidget {
                       foregroundColor: AppColors.background,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     onPressed: () async {
-                      final title  = titleCtrl.text.trim();
+                      final title = titleCtrl.text.trim();
                       final author = authorCtrl.text.trim();
-                      final goal   = int.tryParse(goalCtrl.text.trim()) ?? 20;
+                      final goal = int.tryParse(goalCtrl.text.trim()) ?? 20;
                       if (title.isEmpty) return;
                       Navigator.pop(ctx);
                       await vm.addBook(
-                        title:         title,
-                        author:        author.isNotEmpty ? author : 'Unknown',
-                        category:      category,
-                        filePath:      pickedPath,
+                        title: title,
+                        author: author.isNotEmpty ? author : 'Unknown',
+                        category: category,
+                        filePath: pickedPath,
                         dailyPageGoal: goal < 1 ? 20 : goal,
                       );
                     },
-                    child: Text('ADD TO SHELF',
-                        style: AppTypography.h3.copyWith(
-                            color: AppColors.background, fontSize: 13)),
+                    child: Text(
+                      'ADD TO SHELF',
+                      style: AppTypography.h3.copyWith(
+                        color: AppColors.background,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -397,8 +453,8 @@ class _ShelfTab extends ConsumerWidget {
 /// Uses `shrinkWrap` + `NeverScrollableScrollPhysics` so it nests inside the
 /// outer section ListView; the outer view handles scrolling.
 class _ReorderableSection extends StatelessWidget {
-  final List<BookModel>           books;
-  final void Function(int, int)   onReorder;
+  final List<BookModel> books;
+  final void Function(int, int) onReorder;
   final Widget Function(BookModel) buildCard;
 
   const _ReorderableSection({
@@ -432,13 +488,13 @@ class _ReorderableSection extends StatelessWidget {
 /// icon placeholder (matches the original shelf card look).
 class _CoverThumb extends StatelessWidget {
   final BookModel book;
-  final bool      locked;
+  final bool locked;
   const _CoverThumb({required this.book, required this.locked});
 
   @override
   Widget build(BuildContext context) {
-    final hasCover = book.coverPath != null &&
-        File(book.coverPath!).existsSync();
+    final hasCover =
+        book.coverPath != null && File(book.coverPath!).existsSync();
 
     if (hasCover) {
       return ClipRRect(
@@ -465,24 +521,24 @@ class _CoverThumb extends StatelessWidget {
         color: locked
             ? AppColors.locked
             : book.isCompleted
-                ? AppColors.success.withValues(alpha: 0.15)
-                : AppColors.accent.withValues(alpha: 0.1),
+            ? AppColors.success.withValues(alpha: 0.15)
+            : AppColors.accent.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Icon(
         locked
             ? Icons.lock_outline
             : book.isCompleted
-                ? Icons.check_circle_outline
-                : hasPdf
-                    ? Icons.picture_as_pdf_outlined
-                    : Icons.menu_book_outlined,
+            ? Icons.check_circle_outline
+            : hasPdf
+            ? Icons.picture_as_pdf_outlined
+            : Icons.menu_book_outlined,
         size: 20,
         color: locked
             ? AppColors.textMuted
             : book.isCompleted
-                ? AppColors.success
-                : AppColors.accent,
+            ? AppColors.success
+            : AppColors.accent,
       ),
     );
   }
@@ -491,9 +547,9 @@ class _CoverThumb extends StatelessWidget {
 // ── Book Card ─────────────────────────────────────────────────────────────────
 
 class _BookCard extends StatelessWidget {
-  final BookModel    book;
-  final bool         canOpen;
-  final bool         locked;
+  final BookModel book;
+  final bool canOpen;
+  final bool locked;
   final VoidCallback onTap;
   final VoidCallback? onMarkDone;
 
@@ -532,18 +588,23 @@ class _BookCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(book.title,
-                      style: AppTypography.body.copyWith(
-                          color: locked
-                              ? AppColors.textMuted
-                              : AppColors.textPrimary),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    book.title,
+                    style: AppTypography.body.copyWith(
+                      color: locked
+                          ? AppColors.textMuted
+                          : AppColors.textPrimary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 2),
-                  Text(book.author,
-                      style: AppTypography.caption,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    book.author,
+                    style: AppTypography.caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   if (book.totalPages > 0) ...[
                     const SizedBox(height: 6),
                     ClipRRect(
@@ -595,9 +656,13 @@ class _BookCard extends StatelessWidget {
                   if (locked)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text('Finish current book to unlock',
-                          style: AppTypography.caption
-                              .copyWith(color: AppColors.warning, fontSize: 10)),
+                      child: Text(
+                        'Finish current book to unlock',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.warning,
+                          fontSize: 10,
+                        ),
+                      ),
                     ),
                 ],
               ),
@@ -607,16 +672,23 @@ class _BookCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (hasPdf && !locked)
-                  Icon(Icons.chevron_right,
-                      size: 18, color: AppColors.textMuted),
+                  Icon(
+                    Icons.chevron_right,
+                    size: 18,
+                    color: AppColors.textMuted,
+                  ),
                 if (onMarkDone != null && !book.isCompleted)
                   GestureDetector(
                     onTap: onMarkDone,
                     child: Padding(
                       padding: const EdgeInsets.only(top: 6),
-                      child: Text('DONE',
-                          style: AppTypography.chip
-                              .copyWith(color: AppColors.success, fontSize: 10)),
+                      child: Text(
+                        'DONE',
+                        style: AppTypography.chip.copyWith(
+                          color: AppColors.success,
+                          fontSize: 10,
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -631,7 +703,7 @@ class _BookCard extends StatelessWidget {
 // ── Vocab Tab ─────────────────────────────────────────────────────────────────
 
 class _VocabTab extends ConsumerWidget {
-  final ReadingState    state;
+  final ReadingState state;
   final ReadingViewModel vm;
   const _VocabTab({required this.state, required this.vm});
 
@@ -644,8 +716,11 @@ class _VocabTab extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.spellcheck,
-                        size: 40, color: AppColors.textMuted),
+                    const Icon(
+                      Icons.spellcheck,
+                      size: 40,
+                      color: AppColors.textMuted,
+                    ),
                     const SizedBox(height: 12),
                     Text('No vocabulary yet', style: AppTypography.body),
                   ],
@@ -653,16 +728,22 @@ class _VocabTab extends ConsumerWidget {
               )
             : ListView.builder(
                 padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 100),
+                  AppSpacing.lg,
+                  AppSpacing.md,
+                  AppSpacing.lg,
+                  100,
+                ),
                 itemCount: state.vocabulary.length,
                 itemBuilder: (_, i) => _VocabCard(
-                  word:      state.vocabulary[i],
-                  onReview:  () => vm.incrementVocabReview(state.vocabulary[i].id),
-                  onDelete:  () => vm.deleteVocabWord(state.vocabulary[i].id),
+                  word: state.vocabulary[i],
+                  onReview: () =>
+                      vm.incrementVocabReview(state.vocabulary[i].id),
+                  onDelete: () => vm.deleteVocabWord(state.vocabulary[i].id),
                 ),
               ),
         Positioned(
-          bottom: 20, right: 20,
+          bottom: 20,
+          right: 20,
           child: FloatingActionButton(
             backgroundColor: AppColors.accent,
             foregroundColor: AppColors.background,
@@ -675,27 +756,39 @@ class _VocabTab extends ConsumerWidget {
   }
 
   void _showAddWordSheet(BuildContext context, WidgetRef ref) {
-    final vm      = ref.read(readingViewModelProvider.notifier);
+    final vm = ref.read(readingViewModelProvider.notifier);
     final wordCtrl = TextEditingController();
     final meanCtrl = TextEditingController();
-    final exCtrl   = TextEditingController();
+    final exCtrl = TextEditingController();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
-            20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 36, height: 3,
-                decoration: BoxDecoration(color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2)))),
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Text('ADD WORD', style: AppTypography.label),
             const SizedBox(height: 12),
@@ -709,13 +802,17 @@ class _VocabTab extends ConsumerWidget {
             TextField(
               controller: meanCtrl,
               style: AppTypography.body.copyWith(color: AppColors.textPrimary),
-              decoration: const InputDecoration(hintText: 'Meaning / definition'),
+              decoration: const InputDecoration(
+                hintText: 'Meaning / definition',
+              ),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: exCtrl,
               style: AppTypography.body.copyWith(color: AppColors.textPrimary),
-              decoration: const InputDecoration(hintText: 'Example sentence (optional)'),
+              decoration: const InputDecoration(
+                hintText: 'Example sentence (optional)',
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -726,7 +823,8 @@ class _VocabTab extends ConsumerWidget {
                   foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () async {
                   final word = wordCtrl.text.trim();
@@ -734,16 +832,20 @@ class _VocabTab extends ConsumerWidget {
                   if (word.isEmpty || mean.isEmpty) return;
                   Navigator.pop(ctx);
                   await vm.addVocabWord(
-                    word:            word,
-                    meaning:         mean,
+                    word: word,
+                    meaning: mean,
                     exampleSentence: exCtrl.text.trim().isNotEmpty
                         ? exCtrl.text.trim()
                         : null,
                   );
                 },
-                child: Text('SAVE',
-                    style: AppTypography.h3.copyWith(
-                        color: AppColors.background, fontSize: 13)),
+                child: Text(
+                  'SAVE',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.background,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ],
@@ -761,20 +863,49 @@ class _VocabTab extends ConsumerWidget {
 /// leave the app to understand a word they saved while reading.
 class _VocabCard extends ConsumerStatefulWidget {
   final VocabularyWord word;
-  final VoidCallback   onReview;
-  final VoidCallback   onDelete;
-  const _VocabCard(
-      {required this.word, required this.onReview, required this.onDelete});
+  final VoidCallback onReview;
+  final VoidCallback onDelete;
+  const _VocabCard({
+    required this.word,
+    required this.onReview,
+    required this.onDelete,
+  });
 
   @override
   ConsumerState<_VocabCard> createState() => _VocabCardState();
 }
 
 class _VocabCardState extends ConsumerState<_VocabCard> {
-  bool _expanded   = false;
+  bool _expanded = false;
   bool _refreshing = false;
+  bool _speaking = false;
+  final FlutterTts _tts = FlutterTts();
 
   VocabularyWord get _word => widget.word;
+
+  @override
+  void dispose() {
+    _tts.stop();
+    super.dispose();
+  }
+
+  Future<void> _speakWord() async {
+    if (_speaking) return;
+    setState(() => _speaking = true);
+
+    try {
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(0.42);
+      await _tts.setPitch(1.0);
+      await _tts.speak(_word.word);
+    } finally {
+      if (mounted) {
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (mounted) setState(() => _speaking = false);
+        });
+      }
+    }
+  }
 
   Future<void> _refreshDefinition() async {
     setState(() => _refreshing = true);
@@ -802,32 +933,48 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
-            20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 36, height: 3,
-                decoration: BoxDecoration(color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2)))),
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
-            Text('MY NOTE · ${_word.word.toUpperCase()}',
-                style: AppTypography.label),
+            Text(
+              'MY NOTE · ${_word.word.toUpperCase()}',
+              style: AppTypography.label,
+            ),
             const SizedBox(height: 4),
-            Text('Mnemonic, context, or why you saved this word.',
-                style: AppTypography.caption),
+            Text(
+              'Mnemonic, context, or why you saved this word.',
+              style: AppTypography.caption,
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: ctrl,
               autofocus: true,
               maxLines: 4,
-              style:
-                  AppTypography.body.copyWith(color: AppColors.textPrimary),
+              style: AppTypography.body.copyWith(color: AppColors.textPrimary),
               decoration: const InputDecoration(
-                  hintText: 'Your thoughts on this word...'),
+                hintText: 'Your thoughts on this word...',
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -838,7 +985,8 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
                   foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () async {
                   Navigator.pop(ctx);
@@ -846,9 +994,13 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
                       .read(readingViewModelProvider.notifier)
                       .updateVocabPersonalNote(_word.id, ctrl.text);
                 },
-                child: Text('SAVE NOTE',
-                    style: AppTypography.h3.copyWith(
-                        color: AppColors.background, fontSize: 13)),
+                child: Text(
+                  'SAVE NOTE',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.background,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ],
@@ -925,17 +1077,39 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    Tooltip(
+                      message: 'Speak word',
+                      child: GestureDetector(
+                        onTap: _speakWord,
+                        child: Icon(
+                          _speaking
+                              ? Icons.volume_up
+                              : Icons.volume_up_outlined,
+                          size: 17,
+                          color: _speaking
+                              ? AppColors.accent
+                              : AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     GestureDetector(
                       onTap: widget.onReview,
-                      child: Text('${_word.reviewCount}×',
-                          style: AppTypography.chip
-                              .copyWith(color: AppColors.accent)),
+                      child: Text(
+                        '${_word.reviewCount}×',
+                        style: AppTypography.chip.copyWith(
+                          color: AppColors.accent,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 6),
                     GestureDetector(
                       onTap: widget.onDelete,
-                      child: const Icon(Icons.delete_outline,
-                          size: 16, color: AppColors.textMuted),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Icon(
@@ -958,17 +1132,20 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
 
               // Definitions grouped by part of speech
               if (_word.meaningsByPos.isNotEmpty)
-                ..._word.meaningsByPos.entries.map((e) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _PosBlock(pos: e.key, defs: e.value),
-                    ))
+                ..._word.meaningsByPos.entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _PosBlock(pos: e.key, defs: e.value),
+                  ),
+                )
               else
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
                     'No rich dictionary data saved for this word.',
-                    style: AppTypography.caption
-                        .copyWith(color: AppColors.textMuted),
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ),
 
@@ -977,7 +1154,9 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
                 const SizedBox(height: 4),
                 Text('EXAMPLES', style: AppTypography.label),
                 const SizedBox(height: 4),
-                ..._word.examples.take(4).map(
+                ..._word.examples
+                    .take(4)
+                    .map(
                       (ex) => Padding(
                         padding: const EdgeInsets.only(bottom: 3),
                         child: Text(
@@ -995,15 +1174,17 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
               // Synonyms / Antonyms
               if (_word.synonyms.isNotEmpty)
                 _ChipRow(
-                    label: 'SYN',
-                    items: _word.synonyms.take(8).toList(),
-                    color: const Color(0xFF4A9EFF)),
+                  label: 'SYN',
+                  items: _word.synonyms.take(8).toList(),
+                  color: const Color(0xFF4A9EFF),
+                ),
               if (_word.antonyms.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _ChipRow(
-                    label: 'ANT',
-                    items: _word.antonyms.take(8).toList(),
-                    color: const Color(0xFFE5706B)),
+                  label: 'ANT',
+                  items: _word.antonyms.take(8).toList(),
+                  color: const Color(0xFFE5706B),
+                ),
               ],
 
               // Personal note
@@ -1016,8 +1197,7 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
                   decoration: BoxDecoration(
                     color: AppColors.surfaceVar,
                     borderRadius: BorderRadius.circular(8),
-                    border:
-                        Border.all(color: AppColors.border, width: 0.5),
+                    border: Border.all(color: AppColors.border, width: 0.5),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1047,8 +1227,9 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
                     Expanded(
                       child: Text(
                         'from ${_word.sourceBookTitle}${_word.sourcePage != null ? ' · p${_word.sourcePage}' : ''}',
-                        style: AppTypography.caption
-                            .copyWith(color: AppColors.textMuted),
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textMuted,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     )
@@ -1064,17 +1245,22 @@ class _VocabCardState extends ConsumerState<_VocabCard> {
                             width: 10,
                             height: 10,
                             child: CircularProgressIndicator(
-                                strokeWidth: 1.2,
-                                color: AppColors.accent),
+                              strokeWidth: 1.2,
+                              color: AppColors.accent,
+                            ),
                           )
                         else
-                          const Icon(Icons.refresh,
-                              size: 12, color: AppColors.accent),
+                          const Icon(
+                            Icons.refresh,
+                            size: 12,
+                            color: AppColors.accent,
+                          ),
                         const SizedBox(width: 4),
                         Text(
                           _refreshing ? 'LOOKING UP' : 'REFRESH',
-                          style: AppTypography.chip
-                              .copyWith(color: AppColors.accent),
+                          style: AppTypography.chip.copyWith(
+                            color: AppColors.accent,
+                          ),
                         ),
                       ],
                     ),
@@ -1106,18 +1292,28 @@ class _PosBlock extends StatelessWidget {
             color: AppColors.accent.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text(pos.toUpperCase(),
-              style: AppTypography.chip
-                  .copyWith(color: AppColors.accent, fontSize: 9)),
+          child: Text(
+            pos.toUpperCase(),
+            style: AppTypography.chip.copyWith(
+              color: AppColors.accent,
+              fontSize: 9,
+            ),
+          ),
         ),
         const SizedBox(height: 4),
-        ...defs.take(4).toList().asMap().entries.map(
+        ...defs
+            .take(4)
+            .toList()
+            .asMap()
+            .entries
+            .map(
               (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: 2, left: 4),
                 child: Text(
                   '${entry.key + 1}. ${entry.value}',
-                  style: AppTypography.caption
-                      .copyWith(color: AppColors.textPrimary),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
             ),
@@ -1131,8 +1327,11 @@ class _ChipRow extends StatelessWidget {
   final String label;
   final List<String> items;
   final Color color;
-  const _ChipRow(
-      {required this.label, required this.items, required this.color});
+  const _ChipRow({
+    required this.label,
+    required this.items,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1141,9 +1340,10 @@ class _ChipRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 30,
-          child: Text(label,
-              style: AppTypography.chip
-                  .copyWith(color: color, fontSize: 9)),
+          child: Text(
+            label,
+            style: AppTypography.chip.copyWith(color: color, fontSize: 9),
+          ),
         ),
         Expanded(
           child: Wrap(
@@ -1151,17 +1351,22 @@ class _ChipRow extends StatelessWidget {
             runSpacing: 4,
             children: items.map((w) {
               return Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(
-                      color: color.withValues(alpha: 0.3), width: 0.5),
+                    color: color.withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
                 ),
-                child: Text(w,
-                    style: AppTypography.caption
-                        .copyWith(color: color, fontSize: 10)),
+                child: Text(
+                  w,
+                  style: AppTypography.caption.copyWith(
+                    color: color,
+                    fontSize: 10,
+                  ),
+                ),
               );
             }).toList(),
           ),
@@ -1174,18 +1379,23 @@ class _ChipRow extends StatelessWidget {
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
 class _ReadingTabBar extends StatelessWidget {
-  final List<String>    tabs;
-  final String          selected;
+  final List<String> tabs;
+  final String selected;
   final ValueChanged<String> onSelect;
-  const _ReadingTabBar(
-      {required this.tabs, required this.selected, required this.onSelect});
+  const _ReadingTabBar({
+    required this.tabs,
+    required this.selected,
+    required this.onSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
       child: Row(
         children: tabs.map((tab) {
           final isSelected = tab == selected;
@@ -1195,19 +1405,24 @@ class _ReadingTabBar extends StatelessWidget {
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
-                color:        isSelected ? AppColors.accent.withValues(alpha: 0.15) : Colors.transparent,
+                color: isSelected
+                    ? AppColors.accent.withValues(alpha: 0.15)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
-                border:       Border.all(
-                  color: isSelected ? AppColors.accent.withValues(alpha: 0.4) : AppColors.border,
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.accent.withValues(alpha: 0.4)
+                      : AppColors.border,
                   width: 0.5,
                 ),
               ),
-              child: Text(tab,
-                  style: AppTypography.label.copyWith(
-                      color: isSelected
-                          ? AppColors.accent
-                          : AppColors.textMuted,
-                      fontSize: 11)),
+              child: Text(
+                tab,
+                style: AppTypography.label.copyWith(
+                  color: isSelected ? AppColors.accent : AppColors.textMuted,
+                  fontSize: 11,
+                ),
+              ),
             ),
           );
         }).toList(),
@@ -1220,21 +1435,22 @@ class _ReadingTabBar extends StatelessWidget {
 
 class _StatusChip extends StatelessWidget {
   final String label;
-  final Color  color;
+  final Color color;
   const _StatusChip({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-      decoration: BoxDecoration(
-        color:        color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-        border:       Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
       ),
-      child: Text(label,
-          style: AppTypography.chip.copyWith(color: color)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Text(label, style: AppTypography.chip.copyWith(color: color)),
     );
   }
 }

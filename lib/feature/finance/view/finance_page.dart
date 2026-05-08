@@ -10,6 +10,7 @@ import '../../../core/widgets/rich_section_header.dart';
 import '../model/finance_models.dart';
 import '../viewmodel/finance_viewmodel.dart';
 import 'widgets/finance_summary_card.dart';
+import 'widgets/finance_trend_chart.dart';
 import 'widgets/finance_account_card.dart';
 import 'widgets/finance_budget_multi_card.dart';
 import 'widgets/finance_transaction_tile.dart';
@@ -52,22 +53,34 @@ class FinancePage extends ConsumerWidget {
               floating: true,
               pinned: false,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new,
-                    size: AppSpacing.iconSm, color: AppColors.textSecondary),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  size: AppSpacing.iconSm,
+                  color: AppColors.textSecondary,
+                ),
                 onPressed: () => context.go('/'),
               ),
-              title: Text('FINANCE', style: AppTypography.label.copyWith(fontSize: 12)),
+              title: Text(
+                'FINANCE',
+                style: AppTypography.label.copyWith(fontSize: 12),
+              ),
               centerTitle: false,
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.history_outlined,
-                      size: AppSpacing.iconSm, color: AppColors.textSecondary),
+                  icon: const Icon(
+                    Icons.history_outlined,
+                    size: AppSpacing.iconSm,
+                    color: AppColors.textSecondary,
+                  ),
                   tooltip: 'Audit Trail',
                   onPressed: () => _openAudit(context),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.bar_chart_outlined,
-                      size: AppSpacing.iconSm, color: AppColors.textSecondary),
+                  icon: const Icon(
+                    Icons.bar_chart_outlined,
+                    size: AppSpacing.iconSm,
+                    color: AppColors.textSecondary,
+                  ),
                   tooltip: 'Reports',
                   onPressed: () => _openReports(context),
                 ),
@@ -78,21 +91,27 @@ class FinancePage extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-
                   // ── Summary Card ────────────────────────────────────────
                   FinanceSummaryCard(
                     summary: state.dashboardSummary,
                     monthSummary: state.monthSummary,
                   ),
 
+                  const SizedBox(height: AppSpacing.md),
+
+                  FinanceTrendChart(
+                    accounts: state.accounts,
+                    transactions: state.transactions,
+                  ),
+
                   const SizedBox(height: AppSpacing.xl),
 
                   // ── Quick Actions ───────────────────────────────────────
                   _QuickActionsRow(
-                    onAddIncome:   () => _openAddIncome(context),
-                    onAddExpense:  () => _openAddExpense(context),
-                    onTransfer:    () => _openTransfer(context),
-                    onBudget:      () => _openBudget(context),
+                    onAddIncome: () => _openAddIncome(context),
+                    onAddExpense: () => _openAddExpense(context),
+                    onTransfer: () => _openTransfer(context),
+                    onBudget: () => _openBudget(context),
                   ),
 
                   const SizedBox(height: AppSpacing.xl),
@@ -129,8 +148,8 @@ class FinancePage extends ConsumerWidget {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                       child: FinanceBudgetMultiCard(
-                        category:   cat,
-                        checks:     state.budgetChecksFor(cat),
+                        category: cat,
+                        checks: state.budgetChecksFor(cat),
                         onSetBudget: () => _openBudget(context),
                       ),
                     );
@@ -147,13 +166,20 @@ class FinancePage extends ConsumerWidget {
                   if (state.recentTransactions.isEmpty)
                     _EmptyState(
                       icon: Icons.receipt_long_outlined,
-                      message: 'No transactions yet.\nAdd income or an expense to get started.',
+                      message:
+                          'No transactions yet.\nAdd income or an expense to get started.',
                     )
                   else
-                    ...state.recentTransactions.take(10).map((tx) => Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                          child: FinanceTransactionTile(transaction: tx),
-                        )),
+                    ...state.recentTransactions
+                        .take(10)
+                        .map(
+                          (tx) => Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: AppSpacing.sm,
+                            ),
+                            child: FinanceTransactionTile(transaction: tx),
+                          ),
+                        ),
 
                   const SizedBox(height: AppSpacing.xl),
 
@@ -162,10 +188,12 @@ class FinancePage extends ConsumerWidget {
                   ...state.allInsights
                       .where((i) => i.health != BudgetHealth.healthy)
                       .take(5)
-                      .map((insight) => Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                            child: FinanceInsightCard(insight: insight),
-                          )),
+                      .map(
+                        (insight) => Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                          child: FinanceInsightCard(insight: insight),
+                        ),
+                      ),
                   if (state.allBudgetChecks.isEmpty)
                     FinanceInsightCard(
                       insight: BudgetInsight(
@@ -173,13 +201,15 @@ class FinancePage extends ConsumerWidget {
                         category: FinanceCategory.general,
                         health: BudgetHealth.warning,
                         title: 'No budgets set',
-                        message: 'Set daily, weekly, monthly or yearly budgets '
+                        message:
+                            'Set daily, weekly, monthly or yearly budgets '
                             'to get overspend alerts.',
                         createdAt: DateTime.now(),
                       ),
                     )
-                  else if (state.allBudgetChecks
-                      .every((c) => c.health == BudgetHealth.healthy))
+                  else if (state.allBudgetChecks.every(
+                    (c) => c.health == BudgetHealth.healthy,
+                  ))
                     FinanceInsightCard(
                       insight: BudgetInsight(
                         id: 'all_ok',
@@ -201,39 +231,41 @@ class FinancePage extends ConsumerWidget {
     );
   }
 
-  void _openAddIncome(BuildContext context) =>
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const AddIncomePage(),
-        fullscreenDialog: true,
-      ));
+  void _openAddIncome(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => const AddIncomePage(),
+      fullscreenDialog: true,
+    ),
+  );
 
-  void _openAddExpense(BuildContext context) =>
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const AddExpensePage(),
-        fullscreenDialog: true,
-      ));
+  void _openAddExpense(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => const AddExpensePage(),
+      fullscreenDialog: true,
+    ),
+  );
 
-  void _openTransfer(BuildContext context) =>
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const TransferMoneyPage(),
-        fullscreenDialog: true,
-      ));
+  void _openTransfer(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => const TransferMoneyPage(),
+      fullscreenDialog: true,
+    ),
+  );
 
-  void _openBudget(BuildContext context) =>
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const BudgetAllocationsPage(),
-        fullscreenDialog: true,
-      ));
+  void _openBudget(BuildContext context) => Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => const BudgetAllocationsPage(),
+      fullscreenDialog: true,
+    ),
+  );
 
-  void _openReports(BuildContext context) =>
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const FinanceReportsPage(),
-      ));
+  void _openReports(BuildContext context) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const FinanceReportsPage()));
 
-  void _openAudit(BuildContext context) =>
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => const FinanceAuditPage(),
-      ));
+  void _openAudit(BuildContext context) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const FinanceAuditPage()));
 }
 
 // ── Quick Actions Row ─────────────────────────────────────────────────────────
@@ -313,7 +345,10 @@ class _QuickAction extends StatelessWidget {
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: color.withValues(alpha: 0.25), width: 0.5),
+            border: Border.all(
+              color: color.withValues(alpha: 0.25),
+              width: 0.5,
+            ),
           ),
           child: Column(
             children: [

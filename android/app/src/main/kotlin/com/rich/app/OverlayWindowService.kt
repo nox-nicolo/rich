@@ -1,4 +1,4 @@
-package com.example.rich
+package com.rich.app
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -82,7 +82,6 @@ class OverlayWindowService : Service() {
             y = 200
         }
 
-        // Simple pill view — label says "RICH"
         val view = LayoutInflater.from(this)
             .inflate(R.layout.overlay_pill, null, false)
 

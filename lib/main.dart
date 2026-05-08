@@ -1,20 +1,31 @@
 // lib/main.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tzl;
 import 'core/services/hive_service.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/rich_widget_service.dart';
 import 'core/services/daily_reset_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/tracking/tracking_service.dart';
 import 'core/tracking/tracking_salvage.dart';
+import 'providers/news_provider.dart';
+import 'feature/betting/viewmodel/betting_viewmodel.dart';
+import 'feature/betting/viewmodel/sport_news_viewmodel.dart';
+import 'feature/life/viewmodel/life_viewmodel.dart';
 import 'feature/meditation/viewmodel/meditation_viewmodel.dart';
+import 'feature/milestones/viewmodel/milestone_viewmodel.dart';
 import 'feature/security/view/lock_screen.dart';
 import 'feature/security/viewmodel/app_lock_viewmodel.dart';
+import 'feature/trading/viewmodel/trading_viewmodel.dart';
+import 'feature/work/viewmodel/work_viewmodel.dart';
 
 // Global navigator key — used by NotificationService to route on tap
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -43,11 +54,7 @@ void main() async {
   await DailyResetService.runIfNewDay();
   await NotificationService.instance.init(navigatorKey: navigatorKey);
 
-  runApp(
-    const ProviderScope(
-      child: RichApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: RichApp()));
 
   // Fire-and-forget — runs on the event loop after the first frame is up.
   // Wrapped so any platform-channel failure never crashes the app.
@@ -83,110 +90,186 @@ Future<void> _scheduleDailyReminders() async {
   final svc = NotificationService.instance;
   final now = DateTime.now();
 
-  Future<void> remind(int id, int hour, int minute, String title, String body,
-      {NotificationChannel channel = NotificationChannel.reminder}) async {
+  Future<void> remind(
+    int id,
+    int hour,
+    int minute,
+    String title,
+    String body, {
+    NotificationChannel channel = NotificationChannel.reminder,
+  }) async {
     final time = DateTime(now.year, now.month, now.day, hour, minute);
     await svc.schedule(
-      id:            id,
-      title:         title,
-      body:          body,
-      scheduledTime: time.isBefore(now) ? time.add(const Duration(days: 1)) : time,
-      channel:       channel,
+      id: id,
+      title: title,
+      body: body,
+      scheduledTime: time.isBefore(now)
+          ? time.add(const Duration(days: 1))
+          : time,
+      channel: channel,
     );
   }
 
   // ── Morning ritual block (03:00 – 08:00) ──────────────────────────────────
 
   // 03:00 — Wake up
-  await remind(1, 3, 0,
+  await remind(
+    1,
+    3,
+    0,
     'Wake Up — Begin Your Morning',
-    'Rise. Prayer, breathing, and meditation come first. Open the gate.');
+    'Rise. Prayer, breathing, and meditation come first. Open the gate.',
+  );
 
   // 03:20 — Meditation
-  await remind(2, 3, 20,
+  await remind(
+    2,
+    3,
+    20,
     'Meditation',
-    'Complete your meditation session. The gate must be open before trading.');
+    'Complete your meditation session. The gate must be open before trading.',
+  );
 
   // 04:00 — Intention + rules review
-  await remind(3, 4, 0,
+  await remind(
+    3,
+    4,
+    0,
     'Set Your Intention',
-    'Write today\'s intention. Review your trading rules before the day starts.');
+    'Write today\'s intention. Review your trading rules before the day starts.',
+  );
 
   // 05:00 — Reading block
-  await remind(4, 5, 0,
+  await remind(
+    4,
+    5,
+    0,
     'Reading Block',
-    'Use this quiet hour to read. Log your pages in RICH.');
+    'Use this quiet hour to read. Log your pages in RICH.',
+  );
 
   // 06:30 — Prepare for work
-  await remind(5, 6, 30,
+  await remind(
+    5,
+    6,
+    30,
     'Prepare for Work',
-    'Plan your tasks for today. What must get done before 17:00?');
+    'Plan your tasks for today. What must get done before 17:00?',
+  );
 
   // 07:45 — Leave reminder
-  await remind(6, 7, 45,
+  await remind(
+    6,
+    7,
+    45,
     'Leave for Work',
-    'Head out. Stay disciplined at work — focus and no wasted hours.');
+    'Head out. Stay disciplined at work — focus and no wasted hours.',
+  );
 
   // ── Work block (08:00 – 17:00) ────────────────────────────────────────────
 
   // 10:00 — Mid-morning work check
-  await remind(7, 10, 0,
+  await remind(
+    7,
+    10,
+    0,
     'Mid-Morning Check',
-    'Two hours in. Are your tasks on track? Stay locked in.');
+    'Two hours in. Are your tasks on track? Stay locked in.',
+  );
 
   // 13:00 — Lunch
-  await remind(8, 13, 0,
+  await remind(
+    8,
+    13,
+    0,
     'Lunch Break',
-    'Take your break. Rest your mind — afternoon block starts at 13:30.');
+    'Take your break. Rest your mind — afternoon block starts at 13:30.',
+  );
 
   // 13:30 — Afternoon work resumes
-  await remind(9, 13, 30,
+  await remind(
+    9,
+    13,
+    30,
     'Back to Work',
-    'Afternoon block begins. 3.5 hours left — finish strong.');
+    'Afternoon block begins. 3.5 hours left — finish strong.',
+  );
 
   // 16:30 — End-of-work wrap-up
-  await remind(10, 16, 30,
+  await remind(
+    10,
+    16,
+    30,
     'Wrap Up Work',
-    'Finalize tasks. Log what you completed and what carries to tomorrow.');
+    'Finalize tasks. Log what you completed and what carries to tomorrow.',
+  );
 
   // 17:00 — Leave work
-  await remind(11, 17, 0,
+  await remind(
+    11,
+    17,
+    0,
     'Leave Work',
-    'Head home. Use the 1h travel to decompress and mentally prepare.');
+    'Head home. Use the 1h travel to decompress and mentally prepare.',
+  );
 
   // ── Personal block (18:00 – 23:00) ────────────────────────────────────────
 
   // 18:00 — Home: personal block opens
-  await remind(12, 18, 0,
+  await remind(
+    12,
+    18,
+    0,
     'Home — Personal Block',
     '5 hours for trading, betting, reading, writing, and life. Use them well.',
-    channel: NotificationChannel.trading);
+    channel: NotificationChannel.trading,
+  );
 
   // 18:15 — Review trading rules before any session
-  await remind(13, 18, 15,
+  await remind(
+    13,
+    18,
+    15,
     'Trading Rules Review',
     'Before you open any chart — review your rules. Is the gate open?',
-    channel: NotificationChannel.trading);
+    channel: NotificationChannel.trading,
+  );
 
   // 20:00 — Reading / writing reminder
-  await remind(14, 20, 0,
+  await remind(
+    14,
+    20,
+    0,
     'Reading & Writing',
-    'Have you read today? Log your pages. Write before the day closes.');
+    'Have you read today? Log your pages. Write before the day closes.',
+  );
 
   // 21:30 — Evening reflection
-  await remind(15, 21, 30,
+  await remind(
+    15,
+    21,
+    30,
     'Evening Reflection',
-    'Log your trading and betting sessions. What did today teach you?');
+    'Log your trading and betting sessions. What did today teach you?',
+  );
 
   // 22:30 — Journal + wind-down
-  await remind(16, 22, 30,
+  await remind(
+    16,
+    22,
+    30,
     'Journal & Wind Down',
-    'Write your final entry. Capture lessons. 30 minutes to sleep.');
+    'Write your final entry. Capture lessons. 30 minutes to sleep.',
+  );
 
   // 22:55 — Sleep reminder
-  await remind(17, 22, 55,
+  await remind(
+    17,
+    22,
+    55,
     'Sleep — 23:00',
-    'Close everything. Rest is part of the system. You start again at 03:00.');
+    'Close everything. Rest is part of the system. You start again at 03:00.',
+  );
 }
 
 class RichApp extends ConsumerWidget {
@@ -199,13 +282,180 @@ class RichApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title:                    'Rich',
+      title: 'Rich',
       debugShowCheckedModeBanner: false,
-      theme:                    AppTheme.dark,
-      routerConfig:             router,
+      theme: AppTheme.dark,
+      routerConfig: router,
       builder: (context, child) {
-        return _AppLockGate(child: child ?? const SizedBox.shrink());
+        return _WidgetSnapshotSync(
+          child: _DoubleBackToExit(
+            router: router,
+            child: _AppLockGate(child: child ?? const SizedBox.shrink()),
+          ),
+        );
       },
+    );
+  }
+}
+
+class _WidgetSnapshotSync extends ConsumerStatefulWidget {
+  const _WidgetSnapshotSync({required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<_WidgetSnapshotSync> createState() =>
+      _WidgetSnapshotSyncState();
+}
+
+class _WidgetSnapshotSyncState extends ConsumerState<_WidgetSnapshotSync> {
+  Timer? _debounce;
+  bool _initialQueued = false;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(workViewModelProvider, (_, __) => _queueRefresh());
+    ref.listen(lifeViewModelProvider, (_, __) => _queueRefresh());
+    ref.listen(tradingViewModelProvider, (_, __) => _queueRefresh());
+    ref.listen(bettingViewModelProvider, (_, __) => _queueRefresh());
+    ref.listen(milestoneViewModelProvider, (_, __) => _queueRefresh());
+    ref.listen(newsProvider, (_, __) => _queueRefresh());
+    ref.listen(sportNewsViewModelProvider, (_, __) => _queueRefresh());
+
+    if (!_initialQueued) {
+      _initialQueued = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _queueRefresh());
+    }
+
+    return widget.child;
+  }
+
+  void _queueRefresh() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 700), () async {
+      await RichWidgetService.instance.refresh(
+        tradingNews: ref.read(newsProvider),
+        bettingNews: ref.read(sportNewsViewModelProvider).articles,
+      );
+    });
+  }
+}
+
+/// Intercepts the system back button so a single press at the root only shows
+/// a toast — the user must press back twice within 2 seconds to actually
+/// exit the app. On nested routes the press just pops the router normally.
+class _DoubleBackToExit extends StatefulWidget {
+  final Widget child;
+  final dynamic router; // GoRouter — kept untyped to avoid the import here
+
+  const _DoubleBackToExit({required this.child, required this.router});
+
+  @override
+  State<_DoubleBackToExit> createState() => _DoubleBackToExitState();
+}
+
+class _DoubleBackToExitState extends State<_DoubleBackToExit> {
+  DateTime? _lastBackPress;
+  OverlayEntry? _toastEntry;
+
+  @override
+  void dispose() {
+    _toastEntry?.remove();
+    _toastEntry = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        // Try to pop the router stack first — this preserves normal
+        // back-navigation on nested screens.
+        try {
+          if (widget.router.canPop() == true) {
+            widget.router.pop();
+            return;
+          }
+        } catch (_) {}
+
+        // We're at the root route — apply double-back-to-exit.
+        final now = DateTime.now();
+        if (_lastBackPress != null &&
+            now.difference(_lastBackPress!) < const Duration(seconds: 2)) {
+          _hideToast();
+          await SystemNavigator.pop();
+          return;
+        }
+        _lastBackPress = now;
+        _showToast(context);
+      },
+      child: widget.child,
+    );
+  }
+
+  void _showToast(BuildContext context) {
+    _hideToast();
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+
+    _toastEntry = OverlayEntry(builder: (_) => _ExitToast());
+    overlay.insert(_toastEntry!);
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _hideToast();
+    });
+  }
+
+  void _hideToast() {
+    _toastEntry?.remove();
+    _toastEntry = null;
+  }
+}
+
+class _ExitToast extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 60),
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xEE111111),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: const Color(0xFF2A2A2A), width: 0.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Text(
+                'Press back again to exit',
+                style: TextStyle(
+                  color: Color(0xFFF5F5F5),
+                  fontSize: 12,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

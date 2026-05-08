@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/utils/date_utils.dart';
+import '../../../../core/widgets/glossy_card.dart';
 import '../../../../feature/trading/model/news_event.dart';
 
 class NewsFlashWidget extends StatelessWidget {
@@ -13,17 +14,9 @@ class NewsFlashWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.cardPad),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.05),
-        borderRadius:
-            BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(
-          color: AppColors.warning.withValues(alpha: 0.4),
-          width: 0.5,
-        ),
-      ),
+    return GlossyCard(
+      accentBorder: AppColors.warning,
+      accentTint:   AppColors.warning,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

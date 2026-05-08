@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/glossy_card.dart';
 import '../../../../core/widgets/rich_section_header.dart';
 import '../../model/pillar_summary_model.dart';
 import '../../viewmodel/dashboard_viewmodel.dart';
@@ -58,15 +59,6 @@ class _PillarCard extends StatelessWidget {
     }
   }
 
-  Color get _bgColor {
-    switch (pillar.status) {
-      case PillarStatus.locked:    return AppColors.locked;
-      case PillarStatus.active:    return AppColors.surface;
-      case PillarStatus.completed: return AppColors.surface;
-      default:                     return AppColors.surface;
-    }
-  }
-
   Color get _labelColor {
     switch (pillar.status) {
       case PillarStatus.locked: return AppColors.textDisabled;
@@ -76,63 +68,53 @@ class _PillarCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap, // null = no-op when locked
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(AppSpacing.cardPad),
-        decoration: BoxDecoration(
-          color: _bgColor,
-          borderRadius:
-              BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(color: _borderColor, width: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
+    return GlossyCard(
+      onTap:        onTap,
+      accentBorder: _borderColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // ── Icon row ────────────────────────────────────────────────
+          Row(
+            children: [
+              Icon(
+                pillar.isLocked
+                    ? Icons.lock_outline
+                    : _iconFor(pillar),
+                size: AppSpacing.iconSm,
+                color: pillar.isLocked
+                    ? AppColors.textDisabled
+                    : AppColors.textSecondary,
+              ),
+              const Spacer(),
+              _StatusBadge(pillar: pillar),
+            ],
+          ),
 
-            // ── Icon row ────────────────────────────────────────────────
-            Row(
-              children: [
-                Icon(
-                  pillar.isLocked
-                      ? Icons.lock_outline
-                      : _iconFor(pillar),
-                  size: AppSpacing.iconSm,
+          // ── Labels ──────────────────────────────────────────────────
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                pillar.label,
+                style: AppTypography.h3.copyWith(
+                  color: _labelColor,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                pillar.statusDetail ?? pillar.sublabel,
+                style: AppTypography.caption.copyWith(
                   color: pillar.isLocked
                       ? AppColors.textDisabled
-                      : AppColors.textSecondary,
+                      : AppColors.textMuted,
                 ),
-                const Spacer(),
-                _StatusBadge(pillar: pillar),
-              ],
-            ),
-
-            // ── Labels ──────────────────────────────────────────────────
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  pillar.label,
-                  style: AppTypography.h3.copyWith(
-                    color: _labelColor,
-                    fontSize: 13,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  pillar.statusDetail ?? pillar.sublabel,
-                  style: AppTypography.caption.copyWith(
-                    color: pillar.isLocked
-                        ? AppColors.textDisabled
-                        : AppColors.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

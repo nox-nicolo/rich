@@ -12,7 +12,7 @@ class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
-  bool _muted       = false;
+  bool _muted = false;
   GlobalKey<NavigatorState>? _navigatorKey;
 
   // ── Init ──────────────────────────────────────────────────────────────────
@@ -22,7 +22,7 @@ class NotificationService {
     _navigatorKey = navigatorKey;
 
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios     = DarwinInitializationSettings(
+    const ios = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
       requestSoundPermission: false,
@@ -59,12 +59,12 @@ class NotificationService {
     // Map payload → route
     final routes = <String, String>{
       'meditation': '/meditation',
-      'trading':    '/trading',
-      'betting':    '/betting',
-      'reading':    '/reading',
-      'writing':    '/writing',
-      'work':       '/work',
-      'life':       '/life',
+      'trading': '/trading',
+      'betting': '/betting',
+      'reading': '/reading',
+      'writing': '/writing',
+      'work': '/work',
+      'life': '/life',
     };
 
     final route = routes[payload];
@@ -75,7 +75,7 @@ class NotificationService {
 
   // ── Mute Control ──────────────────────────────────────────────────────────
 
-  void mute()   => _muted = true;
+  void mute() => _muted = true;
   void unmute() => _muted = false;
   bool get isMuted => _muted;
 
@@ -102,8 +102,8 @@ class NotificationService {
           channel.name,
           channelDescription: channel.description,
           importance: channel.importance,
-          priority:   channel.priority,
-          playSound:  channel != NotificationChannel.silent,
+          priority: channel.priority,
+          playSound: channel != NotificationChannel.silent,
         ),
       ),
       payload: payload,
@@ -133,7 +133,7 @@ class NotificationService {
           channel.name,
           channelDescription: channel.description,
           importance: channel.importance,
-          priority:   channel.priority,
+          priority: channel.priority,
         ),
       ),
       uiLocalNotificationDateInterpretation:
@@ -145,16 +145,16 @@ class NotificationService {
 
   // ── Cancel ────────────────────────────────────────────────────────────────
 
-  Future<void> cancel(int id)  async => _plugin.cancel(id);
-  Future<void> cancelAll()     async => _plugin.cancelAll();
+  Future<void> cancel(int id) async => _plugin.cancel(id);
+  Future<void> cancelAll() async => _plugin.cancelAll();
 }
-
 
 // ── Notification Channels ─────────────────────────────────────────────────────
 
 enum NotificationChannel {
   general,
   reminder,
+  taskAlarm,
   trading,
   critical,
   silent,
@@ -163,21 +163,35 @@ enum NotificationChannel {
 extension NotificationChannelX on NotificationChannel {
   String get id {
     switch (this) {
-      case NotificationChannel.general:  return 'rich_general';
-      case NotificationChannel.reminder: return 'rich_reminder';
-      case NotificationChannel.trading:  return 'rich_trading';
-      case NotificationChannel.critical: return 'rich_critical';
-      case NotificationChannel.silent:   return 'rich_silent';
+      case NotificationChannel.general:
+        return 'rich_general';
+      case NotificationChannel.reminder:
+        return 'rich_reminder';
+      case NotificationChannel.taskAlarm:
+        return 'rich_task_alarm';
+      case NotificationChannel.trading:
+        return 'rich_trading';
+      case NotificationChannel.critical:
+        return 'rich_critical';
+      case NotificationChannel.silent:
+        return 'rich_silent';
     }
   }
 
   String get name {
     switch (this) {
-      case NotificationChannel.general:  return 'General';
-      case NotificationChannel.reminder: return 'Reminders';
-      case NotificationChannel.trading:  return 'Trading Alerts';
-      case NotificationChannel.critical: return 'Critical Alerts';
-      case NotificationChannel.silent:   return 'Silent';
+      case NotificationChannel.general:
+        return 'General';
+      case NotificationChannel.reminder:
+        return 'Reminders';
+      case NotificationChannel.taskAlarm:
+        return 'Task Alarms';
+      case NotificationChannel.trading:
+        return 'Trading Alerts';
+      case NotificationChannel.critical:
+        return 'Critical Alerts';
+      case NotificationChannel.silent:
+        return 'Silent';
     }
   }
 
@@ -187,6 +201,8 @@ extension NotificationChannelX on NotificationChannel {
         return 'General RICH notifications';
       case NotificationChannel.reminder:
         return 'Routine and habit reminders';
+      case NotificationChannel.taskAlarm:
+        return 'Scheduled task start alarms';
       case NotificationChannel.trading:
         return 'High-impact market events';
       case NotificationChannel.critical:
@@ -198,19 +214,31 @@ extension NotificationChannelX on NotificationChannel {
 
   Importance get importance {
     switch (this) {
-      case NotificationChannel.critical: return Importance.max;
-      case NotificationChannel.trading:  return Importance.high;
-      case NotificationChannel.reminder: return Importance.defaultImportance;
-      case NotificationChannel.general:  return Importance.defaultImportance;
-      case NotificationChannel.silent:   return Importance.min;
+      case NotificationChannel.taskAlarm:
+        return Importance.max;
+      case NotificationChannel.critical:
+        return Importance.max;
+      case NotificationChannel.trading:
+        return Importance.high;
+      case NotificationChannel.reminder:
+        return Importance.defaultImportance;
+      case NotificationChannel.general:
+        return Importance.defaultImportance;
+      case NotificationChannel.silent:
+        return Importance.min;
     }
   }
 
   Priority get priority {
     switch (this) {
-      case NotificationChannel.critical: return Priority.max;
-      case NotificationChannel.trading:  return Priority.high;
-      default:                            return Priority.defaultPriority;
+      case NotificationChannel.taskAlarm:
+        return Priority.max;
+      case NotificationChannel.critical:
+        return Priority.max;
+      case NotificationChannel.trading:
+        return Priority.high;
+      default:
+        return Priority.defaultPriority;
     }
   }
 }

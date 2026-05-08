@@ -14,7 +14,17 @@ class BettingPlanWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(bettingViewModelProvider);
-    final vm    = ref.read(bettingViewModelProvider.notifier);
+    final vm = ref.read(bettingViewModelProvider.notifier);
+
+    // The most recent plan, regardless of its status. If it's LOST, we offer
+    // a recovery plan even though it's no longer "active" (active = status==active).
+    final sortedPlans = [...state.plans]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final mostRecent = sortedPlans.isNotEmpty ? sortedPlans.first : null;
+    final showRecovery =
+        state.activePlan == null &&
+        mostRecent != null &&
+        mostRecent.status == BettingPlanStatus.lost;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -23,12 +33,14 @@ class BettingPlanWidget extends ConsumerWidget {
         Row(
           children: [
             Expanded(
-              child: Text('ROAD TO TARGET',
-                  style: AppTypography.label.copyWith(letterSpacing: 2)),
+              child: Text(
+                'ROAD TO TARGET',
+                style: AppTypography.label.copyWith(letterSpacing: 2),
+              ),
             ),
             _ActionButton(
               label: 'NEW PLAN',
-              onTap:  () => _showCreatePlanSheet(context, ref),
+              onTap: () => _showCreatePlanSheet(context, ref),
             ),
           ],
         ),
@@ -45,21 +57,28 @@ class BettingPlanWidget extends ConsumerWidget {
                 ? _PhasesBar(plan: state.activePlan!)
                 : Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceVar,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                          color: AppColors.border, width: 0.5),
+                      border: Border.all(color: AppColors.border, width: 0.5),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.add, size: 14,
-                            color: AppColors.accent),
+                        const Icon(
+                          Icons.add,
+                          size: 14,
+                          color: AppColors.accent,
+                        ),
                         const SizedBox(width: 6),
-                        Text('DEFINE PHASES',
-                            style: AppTypography.chip
-                                .copyWith(color: AppColors.accent)),
+                        Text(
+                          'DEFINE PHASES',
+                          style: AppTypography.chip.copyWith(
+                            color: AppColors.accent,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -68,21 +87,52 @@ class BettingPlanWidget extends ConsumerWidget {
           _AddStepRow(plan: state.activePlan!, ref: ref),
           const SizedBox(height: AppSpacing.sm),
           _StepsTable(plan: state.activePlan!, vm: vm),
+        ] else if (showRecovery) ...[
+          // Last plan failed and there's no replacement yet — show its summary
+          // and a one-tap REUSE banner so the user can clone it instantly.
+          _PlanHeader(plan: mostRecent),
+          const SizedBox(height: AppSpacing.sm),
+          _ReusePlanBanner(
+            failedPlan: mostRecent,
+            onReuse: () => vm.reusePlan(mostRecent),
+            onEdit: () => _showRecoveryPlanSheet(context, ref, mostRecent),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          _StepsTable(plan: mostRecent, vm: vm),
         ] else ...[
           _EmptyPlanCard(onTap: () => _showCreatePlanSheet(context, ref)),
         ],
 
         // ── Past plans ───────────────────────────────────────────────────────
-        if (state.plans.where((p) => !p.isActive).isNotEmpty) ...[
+        // Exclude the recovery banner's plan from history so it isn't shown twice.
+        if (state.plans
+            .where(
+              (p) => !p.isActive && (!showRecovery || p.id != mostRecent.id),
+            )
+            .isNotEmpty) ...[
           const SizedBox(height: AppSpacing.xl),
-          Text('PLAN HISTORY',
-              style: AppTypography.chip.copyWith(color: AppColors.textMuted)),
-          const SizedBox(height: AppSpacing.sm),
-          _PlanSummaryCard(plans: state.plans.where((p) => !p.isActive).toList()),
-          const SizedBox(height: AppSpacing.sm),
-          ...state.plans.where((p) => !p.isActive).map((p) =>
-            _PastPlanTile(plan: p, onDelete: () => vm.deletePlan(p.id)),
+          Text(
+            'PLAN HISTORY',
+            style: AppTypography.chip.copyWith(color: AppColors.textMuted),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          _PlanSummaryCard(
+            plans: state.plans
+                .where(
+                  (p) =>
+                      !p.isActive && (!showRecovery || p.id != mostRecent.id),
+                )
+                .toList(),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ...state.plans
+              .where(
+                (p) => !p.isActive && (!showRecovery || p.id != mostRecent.id),
+              )
+              .map(
+                (p) =>
+                    _PastPlanTile(plan: p, onDelete: () => vm.deletePlan(p.id)),
+              ),
         ],
       ],
     );
@@ -96,20 +146,41 @@ class BettingPlanWidget extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => _CreatePlanSheet(ref: ref),
     );
   }
 
   void _showEditPhasesSheet(
-      BuildContext context, WidgetRef ref, BettingPlan plan) {
+    BuildContext context,
+    WidgetRef ref,
+    BettingPlan plan,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => _EditPhasesSheet(ref: ref, plan: plan),
+    );
+  }
+
+  void _showRecoveryPlanSheet(
+    BuildContext context,
+    WidgetRef ref,
+    BettingPlan failedPlan,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _RecoveryPlanSheet(ref: ref, failedPlan: failedPlan),
     );
   }
 }
@@ -125,12 +196,12 @@ class _CreatePlanSheet extends StatefulWidget {
 }
 
 class _CreatePlanSheetState extends State<_CreatePlanSheet> {
-  final nameCtrl   = TextEditingController();
-  final startCtrl  = TextEditingController();
+  final nameCtrl = TextEditingController();
+  final startCtrl = TextEditingController();
   final targetCtrl = TextEditingController();
-  final oddsCtrl   = TextEditingController(text: '1.5');
-  final reinvCtrl  = TextEditingController(text: '100');
-  bool  useRule    = false;
+  final oddsCtrl = TextEditingController(text: '1.5');
+  final reinvCtrl = TextEditingController(text: '100');
+  bool useRule = false;
 
   // Phase fields
   final List<_PhaseInput> _phases = [];
@@ -151,10 +222,12 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
 
   void _addPhase() {
     setState(() {
-      _phases.add(_PhaseInput(
-        nameCtrl:   TextEditingController(text: 'Phase ${_phases.length + 1}'),
-        targetCtrl: TextEditingController(),
-      ));
+      _phases.add(
+        _PhaseInput(
+          nameCtrl: TextEditingController(text: 'Phase ${_phases.length + 1}'),
+          targetCtrl: TextEditingController(),
+        ),
+      );
     });
   }
 
@@ -172,33 +245,54 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-          20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 36, height: 3,
-                decoration: BoxDecoration(color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2)))),
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Text('CREATE BETTING PLAN', style: AppTypography.label),
             const SizedBox(height: 16),
 
-            _Field(ctrl: nameCtrl,   hint: 'Plan name'),
+            _Field(ctrl: nameCtrl, hint: 'Plan name'),
             const SizedBox(height: 10),
-            _Field(ctrl: startCtrl,  hint: 'Starting capital (TZS)',
-                inputType: TextInputType.number),
+            _Field(
+              ctrl: startCtrl,
+              hint: 'Starting capital (TZS)',
+              inputType: TextInputType.number,
+            ),
             const SizedBox(height: 10),
-            _Field(ctrl: targetCtrl, hint: 'Final target (TZS)',
-                inputType: TextInputType.number),
+            _Field(
+              ctrl: targetCtrl,
+              hint: 'Final target (TZS)',
+              inputType: TextInputType.number,
+            ),
 
             // ── Phases ──────────────────────────────────────────────────────
             const SizedBox(height: 14),
             Row(
               children: [
-                Text('PHASES', style: AppTypography.chip.copyWith(
-                    color: AppColors.textMuted)),
+                Text(
+                  'PHASES',
+                  style: AppTypography.chip.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
                 const Spacer(),
                 GestureDetector(
                   onTap: _addPhase,
@@ -206,8 +300,12 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
                     children: [
                       const Icon(Icons.add, size: 14, color: AppColors.accent),
                       const SizedBox(width: 4),
-                      Text('ADD PHASE', style: AppTypography.chip.copyWith(
-                          color: AppColors.accent)),
+                      Text(
+                        'ADD PHASE',
+                        style: AppTypography.chip.copyWith(
+                          color: AppColors.accent,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -216,56 +314,76 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
             if (_phases.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text('No phases — plan goes straight to final target',
-                    style: AppTypography.caption.copyWith(
-                        color: AppColors.textMuted, fontSize: 11)),
+                child: Text(
+                  'No phases — plan goes straight to final target',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
               ),
-            ..._phases.asMap().entries.map((e) => Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: _Field(ctrl: e.value.nameCtrl, hint: 'Phase name'),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: _Field(ctrl: e.value.targetCtrl,
-                        hint: 'Target', inputType: TextInputType.number),
-                  ),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () => _removePhase(e.key),
-                    child: const Icon(Icons.close, size: 16,
-                        color: AppColors.textMuted),
-                  ),
-                ],
+            ..._phases.asMap().entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: _Field(ctrl: e.value.nameCtrl, hint: 'Phase name'),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: _Field(
+                        ctrl: e.value.targetCtrl,
+                        hint: 'Target',
+                        inputType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => _removePhase(e.key),
+                      child: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            )),
+            ),
 
             // ── Rollover toggle ─────────────────────────────────────────────
             const SizedBox(height: 14),
             Row(
               children: [
                 Switch(
-                  value:    useRule,
+                  value: useRule,
                   onChanged: (v) => setState(() => useRule = v),
-                  activeColor: AppColors.accent,
+                  activeThumbColor: AppColors.accent,
                 ),
                 const SizedBox(width: 8),
-                Text('Auto-generate steps (rollover)',
-                    style: AppTypography.caption),
+                Text(
+                  'Auto-generate steps (rollover)',
+                  style: AppTypography.caption,
+                ),
               ],
             ),
 
             if (useRule) ...[
               const SizedBox(height: 8),
-              _Field(ctrl: oddsCtrl,  hint: 'Odds per bet (e.g. 1.5)',
-                  inputType: const TextInputType.numberWithOptions(decimal: true)),
+              _Field(
+                ctrl: oddsCtrl,
+                hint: 'Odds per bet (e.g. 1.5)',
+                inputType: const TextInputType.numberWithOptions(decimal: true),
+              ),
               const SizedBox(height: 8),
-              _Field(ctrl: reinvCtrl, hint: 'Reinvest % of profit (e.g. 100)',
-                  inputType: TextInputType.number),
+              _Field(
+                ctrl: reinvCtrl,
+                hint: 'Reinvest % of profit (e.g. 100)',
+                inputType: TextInputType.number,
+              ),
             ],
 
             const SizedBox(height: 16),
@@ -277,49 +395,68 @@ class _CreatePlanSheetState extends State<_CreatePlanSheet> {
                   foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () async {
-                  final name   = nameCtrl.text.trim();
-                  final start  = double.tryParse(startCtrl.text.trim());
+                  final name = nameCtrl.text.trim();
+                  final start = double.tryParse(startCtrl.text.trim());
                   final target = double.tryParse(targetCtrl.text.trim());
-                  if (name.isEmpty || start == null || target == null) return;
 
-                  final phases = _phases.asMap().entries.map((e) {
-                    final t = double.tryParse(e.value.targetCtrl.text.trim());
-                    return PlanPhase(
-                      number: e.key + 1,
-                      name:   e.value.nameCtrl.text.trim().isNotEmpty
-                          ? e.value.nameCtrl.text.trim()
-                          : 'Phase ${e.key + 1}',
-                      target: t ?? 0,
-                    );
-                  }).where((p) => p.target > 0).toList();
+                  final phases = _phases
+                      .asMap()
+                      .entries
+                      .map((e) {
+                        final t = double.tryParse(
+                          e.value.targetCtrl.text.trim(),
+                        );
+                        return PlanPhase(
+                          number: e.key + 1,
+                          name: e.value.nameCtrl.text.trim().isNotEmpty
+                              ? e.value.nameCtrl.text.trim()
+                              : 'Phase ${e.key + 1}',
+                          target: t ?? 0,
+                        );
+                      })
+                      .where((p) => p.target > 0)
+                      .toList();
+                  final effectiveTarget = phases.isEmpty
+                      ? target
+                      : phases.fold(0.0, (sum, phase) => sum + phase.target);
+                  if (name.isEmpty ||
+                      start == null ||
+                      effectiveTarget == null) {
+                    return;
+                  }
 
                   Navigator.pop(context);
                   if (useRule) {
-                    final odds  = double.tryParse(oddsCtrl.text.trim()) ?? 1.5;
+                    final odds = double.tryParse(oddsCtrl.text.trim()) ?? 1.5;
                     final reinv = double.tryParse(reinvCtrl.text.trim()) ?? 100;
                     await vm.createPlanFromRule(
-                      name:            name,
+                      name: name,
                       startingCapital: start,
-                      targetCapital:   target,
-                      odds:            odds,
+                      targetCapital: effectiveTarget,
+                      odds: odds,
                       reinvestPercent: reinv,
-                      phases:          phases,
+                      phases: phases,
                     );
                   } else {
                     await vm.createPlan(
-                      name:            name,
+                      name: name,
                       startingCapital: start,
-                      targetCapital:   target,
-                      phases:          phases,
+                      targetCapital: effectiveTarget,
+                      phases: phases,
                     );
                   }
                 },
-                child: Text('CREATE',
-                    style: AppTypography.h3.copyWith(
-                        color: AppColors.background, fontSize: 13)),
+                child: Text(
+                  'CREATE',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.background,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ],
@@ -333,6 +470,495 @@ class _PhaseInput {
   final TextEditingController nameCtrl;
   final TextEditingController targetCtrl;
   _PhaseInput({required this.nameCtrl, required this.targetCtrl});
+}
+
+// ── Reuse plan banner ─────────────────────────────────────────────────────────
+//
+// Shown above a failed plan. Primary action [REUSE] clones the plan
+// one-tap — same name, capital, target, phases, all steps reset to pending.
+// Secondary action [EDIT] opens the sheet for those who want to tweak first.
+
+class _ReusePlanBanner extends StatelessWidget {
+  final BettingPlan failedPlan;
+  final VoidCallback onReuse;
+  final VoidCallback onEdit;
+
+  const _ReusePlanBanner({
+    required this.failedPlan,
+    required this.onReuse,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: AppColors.warning.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.refresh, size: 14, color: AppColors.warning),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Plan failed. Reuse it as-is?',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.warning,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Padding(
+            padding: const EdgeInsets.only(left: 22),
+            child: Text(
+              '${failedPlan.phases.length} phases · '
+              '${failedPlan.steps.length} steps will be cloned',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textMuted,
+                fontSize: 10,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onReuse,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.sm,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.warning,
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.radiusFull,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'REUSE PLAN',
+                      style: AppTypography.label.copyWith(
+                        color: AppColors.background,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              GestureDetector(
+                onTap: onEdit,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                    border: Border.all(
+                      color: AppColors.warning.withValues(alpha: 0.5),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    'EDIT',
+                    style: AppTypography.chip.copyWith(
+                      color: AppColors.warning,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Recovery plan sheet ───────────────────────────────────────────────────────
+
+class _RecoveryPlanSheet extends StatefulWidget {
+  final WidgetRef ref;
+  final BettingPlan failedPlan;
+  const _RecoveryPlanSheet({required this.ref, required this.failedPlan});
+
+  @override
+  State<_RecoveryPlanSheet> createState() => _RecoveryPlanSheetState();
+}
+
+class _RecoveryPlanSheetState extends State<_RecoveryPlanSheet> {
+  late final TextEditingController nameCtrl;
+  late final TextEditingController startCtrl;
+  late final TextEditingController targetCtrl;
+  late final TextEditingController oddsCtrl;
+  late final TextEditingController reinvCtrl;
+  bool useRule = true;
+  // Phases editable inside the sheet, pre-filled from the failed plan.
+  final List<_PhaseInput> _phases = [];
+
+  @override
+  void initState() {
+    super.initState();
+    nameCtrl = TextEditingController(
+      text: 'Recovery — ${widget.failedPlan.name}',
+    );
+    startCtrl = TextEditingController(
+      text: widget.failedPlan.startingCapital.toStringAsFixed(0),
+    );
+    targetCtrl = TextEditingController(
+      text: widget.failedPlan.targetCapital.toStringAsFixed(0),
+    );
+
+    // Pre-fill odds + reinvest from the failed plan's first step if present;
+    // these are the closest thing to the original rollover settings.
+    final firstStep = widget.failedPlan.steps.isNotEmpty
+        ? widget.failedPlan.steps.first
+        : null;
+    oddsCtrl = TextEditingController(
+      text: firstStep != null ? firstStep.odds.toStringAsFixed(2) : '1.5',
+    );
+    // Reinvest % derived from kept ratio of first won step, else 100.
+    final wonRef = widget.failedPlan.steps.firstWhere(
+      (s) => s.status == BettingPlanStepStatus.won,
+      orElse: () => const BettingPlanStep(step: 0, stake: 0, odds: 0),
+    );
+    final reinvDefault = wonRef.step != 0 && wonRef.stake > 0
+        ? (() {
+            final profit = wonRef.stake * wonRef.odds - wonRef.stake;
+            if (profit <= 0) return 100.0;
+            final keptRatio = (wonRef.kept / profit).clamp(0.0, 1.0);
+            return ((1 - keptRatio) * 100).clamp(0.0, 100.0);
+          })()
+        : 100.0;
+    reinvCtrl = TextEditingController(text: reinvDefault.toStringAsFixed(0));
+
+    // Pre-fill phases from the failed plan
+    for (final p in widget.failedPlan.phases) {
+      _phases.add(
+        _PhaseInput(
+          nameCtrl: TextEditingController(text: p.name),
+          targetCtrl: TextEditingController(text: p.target.toStringAsFixed(0)),
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    nameCtrl.dispose();
+    startCtrl.dispose();
+    targetCtrl.dispose();
+    oddsCtrl.dispose();
+    reinvCtrl.dispose();
+    for (final p in _phases) {
+      p.nameCtrl.dispose();
+      p.targetCtrl.dispose();
+    }
+    super.dispose();
+  }
+
+  void _addPhase() {
+    setState(() {
+      _phases.add(
+        _PhaseInput(
+          nameCtrl: TextEditingController(text: 'Phase ${_phases.length + 1}'),
+          targetCtrl: TextEditingController(),
+        ),
+      );
+    });
+  }
+
+  void _removePhase(int idx) {
+    setState(() {
+      _phases[idx].nameCtrl.dispose();
+      _phases[idx].targetCtrl.dispose();
+      _phases.removeAt(idx);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = widget.ref.read(bettingViewModelProvider.notifier);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.refresh, size: 14, color: AppColors.warning),
+                const SizedBox(width: 6),
+                Text('RECOVERY PLAN', style: AppTypography.label),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Failed: ${widget.failedPlan.name}  '
+              '(${widget.failedPlan.wonSteps}W / ${widget.failedPlan.lostSteps}L · '
+              '${widget.failedPlan.phases.length} phases · '
+              '${widget.failedPlan.steps.length} steps)',
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 14),
+
+            _Field(ctrl: nameCtrl, hint: 'Plan name'),
+            const SizedBox(height: 10),
+            _Field(
+              ctrl: startCtrl,
+              hint: 'Starting capital (TZS)',
+              inputType: TextInputType.number,
+            ),
+            const SizedBox(height: 10),
+            _Field(
+              ctrl: targetCtrl,
+              hint: 'Target (TZS)',
+              inputType: TextInputType.number,
+            ),
+
+            // ── Phases ─────────────────────────────────────────────────────
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Text(
+                  'PHASES',
+                  style: AppTypography.chip.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '(copied from failed plan — edit if needed)',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 10,
+                  ),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: _addPhase,
+                  child: Row(
+                    children: [
+                      const Icon(Icons.add, size: 14, color: AppColors.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        'ADD PHASE',
+                        style: AppTypography.chip.copyWith(
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (_phases.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  'No phases — recovery plan goes straight to final target',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ..._phases.asMap().entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 22,
+                      child: Text(
+                        '${e.key + 1}',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: _Field(ctrl: e.value.nameCtrl, hint: 'Phase name'),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: _Field(
+                        ctrl: e.value.targetCtrl,
+                        hint: 'Target',
+                        inputType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => _removePhase(e.key),
+                      child: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Switch(
+                  value: useRule,
+                  onChanged: (v) => setState(() => useRule = v),
+                  activeThumbColor: AppColors.accent,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Auto-generate steps (rollover)',
+                  style: AppTypography.caption,
+                ),
+              ],
+            ),
+            if (useRule) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Steps will be regenerated to match the phase targets above.',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                  fontSize: 10,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _Field(
+                ctrl: oddsCtrl,
+                hint: 'Odds per bet (e.g. 1.5)',
+                inputType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 8),
+              _Field(
+                ctrl: reinvCtrl,
+                hint: 'Reinvest % (e.g. 100)',
+                inputType: TextInputType.number,
+              ),
+            ],
+
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.warning,
+                  foregroundColor: AppColors.background,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: () async {
+                  final name = nameCtrl.text.trim();
+                  final start = double.tryParse(startCtrl.text.trim());
+                  final target = double.tryParse(targetCtrl.text.trim());
+
+                  // Build phases from the editable inputs
+                  final phases = _phases
+                      .asMap()
+                      .entries
+                      .map((e) {
+                        final t = double.tryParse(
+                          e.value.targetCtrl.text.trim(),
+                        );
+                        return PlanPhase(
+                          number: e.key + 1,
+                          name: e.value.nameCtrl.text.trim().isNotEmpty
+                              ? e.value.nameCtrl.text.trim()
+                              : 'Phase ${e.key + 1}',
+                          target: t ?? 0,
+                        );
+                      })
+                      .where((p) => p.target > 0)
+                      .toList();
+                  final effectiveTarget = phases.isEmpty
+                      ? target
+                      : phases.fold(0.0, (sum, phase) => sum + phase.target);
+                  if (name.isEmpty ||
+                      start == null ||
+                      effectiveTarget == null) {
+                    return;
+                  }
+
+                  Navigator.pop(context);
+                  if (useRule) {
+                    final odds = double.tryParse(oddsCtrl.text.trim()) ?? 1.5;
+                    final reinv = double.tryParse(reinvCtrl.text.trim()) ?? 100;
+                    await vm.createPlanFromRule(
+                      name: name,
+                      startingCapital: start,
+                      targetCapital: effectiveTarget,
+                      odds: odds,
+                      reinvestPercent: reinv,
+                      phases: phases,
+                    );
+                  } else {
+                    await vm.createPlan(
+                      name: name,
+                      startingCapital: start,
+                      targetCapital: effectiveTarget,
+                      phases: phases,
+                    );
+                  }
+                },
+                child: Text(
+                  'START RECOVERY',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.background,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Edit phases sheet ────────────────────────────────────────────────────────
@@ -356,10 +982,12 @@ class _EditPhasesSheetState extends State<_EditPhasesSheet> {
   void initState() {
     super.initState();
     for (final p in widget.plan.phases) {
-      _phases.add(_PhaseInput(
-        nameCtrl:   TextEditingController(text: p.name),
-        targetCtrl: TextEditingController(text: p.target.toStringAsFixed(0)),
-      ));
+      _phases.add(
+        _PhaseInput(
+          nameCtrl: TextEditingController(text: p.name),
+          targetCtrl: TextEditingController(text: p.target.toStringAsFixed(0)),
+        ),
+      );
     }
   }
 
@@ -374,10 +1002,12 @@ class _EditPhasesSheetState extends State<_EditPhasesSheet> {
 
   void _addPhase() {
     setState(() {
-      _phases.add(_PhaseInput(
-        nameCtrl:   TextEditingController(text: 'Phase ${_phases.length + 1}'),
-        targetCtrl: TextEditingController(),
-      ));
+      _phases.add(
+        _PhaseInput(
+          nameCtrl: TextEditingController(text: 'Phase ${_phases.length + 1}'),
+          targetCtrl: TextEditingController(),
+        ),
+      );
     });
   }
 
@@ -395,21 +1025,33 @@ class _EditPhasesSheetState extends State<_EditPhasesSheet> {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-          20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 36, height: 3,
-                decoration: BoxDecoration(color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2)))),
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Text('EDIT PHASES', style: AppTypography.label),
             const SizedBox(height: 4),
-            Text(widget.plan.name,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textMuted)),
+            Text(
+              widget.plan.name,
+              style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+            ),
             const SizedBox(height: 14),
 
             if (_phases.isEmpty)
@@ -417,41 +1059,52 @@ class _EditPhasesSheetState extends State<_EditPhasesSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 child: Text(
                   'No phases yet. Tap "+ ADD PHASE" to split your plan into stages.',
-                  style: AppTypography.caption
-                      .copyWith(color: AppColors.textMuted),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ),
 
-            ..._phases.asMap().entries.map((e) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 22,
-                    child: Text('${e.key + 1}',
-                        style: AppTypography.caption
-                            .copyWith(color: AppColors.textMuted)),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: _Field(ctrl: e.value.nameCtrl, hint: 'Name'),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    flex: 4,
-                    child: _Field(ctrl: e.value.targetCtrl,
+            ..._phases.asMap().entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 22,
+                      child: Text(
+                        '${e.key + 1}',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: _Field(ctrl: e.value.nameCtrl, hint: 'Name'),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      flex: 4,
+                      child: _Field(
+                        ctrl: e.value.targetCtrl,
                         hint: 'Target (TZS)',
-                        inputType: TextInputType.number),
-                  ),
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () => _removePhase(e.key),
-                    child: const Icon(Icons.close, size: 16,
-                        color: AppColors.textMuted),
-                  ),
-                ],
+                        inputType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => _removePhase(e.key),
+                      child: const Icon(
+                        Icons.close,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            )),
+            ),
 
             const SizedBox(height: 6),
             GestureDetector(
@@ -460,9 +1113,10 @@ class _EditPhasesSheetState extends State<_EditPhasesSheet> {
                 children: [
                   const Icon(Icons.add, size: 14, color: AppColors.accent),
                   const SizedBox(width: 4),
-                  Text('ADD PHASE',
-                      style: AppTypography.chip
-                          .copyWith(color: AppColors.accent)),
+                  Text(
+                    'ADD PHASE',
+                    style: AppTypography.chip.copyWith(color: AppColors.accent),
+                  ),
                 ],
               ),
             ),
@@ -476,26 +1130,37 @@ class _EditPhasesSheetState extends State<_EditPhasesSheet> {
                   foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () async {
-                  final phases = _phases.asMap().entries.map((e) {
-                    final t = double.tryParse(
-                        e.value.targetCtrl.text.trim());
-                    return PlanPhase(
-                      number: e.key + 1,
-                      name:   e.value.nameCtrl.text.trim().isNotEmpty
-                          ? e.value.nameCtrl.text.trim()
-                          : 'Phase ${e.key + 1}',
-                      target: t ?? 0,
-                    );
-                  }).where((p) => p.target > 0).toList();
+                  final phases = _phases
+                      .asMap()
+                      .entries
+                      .map((e) {
+                        final t = double.tryParse(
+                          e.value.targetCtrl.text.trim(),
+                        );
+                        return PlanPhase(
+                          number: e.key + 1,
+                          name: e.value.nameCtrl.text.trim().isNotEmpty
+                              ? e.value.nameCtrl.text.trim()
+                              : 'Phase ${e.key + 1}',
+                          target: t ?? 0,
+                        );
+                      })
+                      .where((p) => p.target > 0)
+                      .toList();
                   Navigator.pop(context);
                   await vm.updatePlanPhases(widget.plan.id, phases);
                 },
-                child: Text('SAVE',
-                    style: AppTypography.h3.copyWith(
-                        color: AppColors.background, fontSize: 13)),
+                child: Text(
+                  'SAVE',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.background,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ],
@@ -527,8 +1192,10 @@ class _PlanHeader extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(plan.name,
-                    style: AppTypography.h3.copyWith(fontSize: 14)),
+                child: Text(
+                  plan.name,
+                  style: AppTypography.h3.copyWith(fontSize: 14),
+                ),
               ),
               _StatusBadge(status: plan.status),
             ],
@@ -539,23 +1206,32 @@ class _PlanHeader extends StatelessWidget {
           // exactly where they stand.
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline:       TextBaseline.alphabetic,
+            textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('NOW',
-                  style: AppTypography.chip
-                      .copyWith(color: AppColors.textMuted, fontSize: 9)),
+              Text(
+                'NOW',
+                style: AppTypography.chip.copyWith(
+                  color: AppColors.textMuted,
+                  fontSize: 9,
+                ),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   _fmtFull(plan.currentBalance),
                   style: AppTypography.h3.copyWith(
-                      color: AppColors.textPrimary, fontSize: 22),
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Text(' TZS',
-                  style: AppTypography.caption.copyWith(
-                      color: AppColors.textMuted)),
+              Text(
+                ' TZS',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textMuted,
+                ),
+              ),
             ],
           ),
           if (plan.totalKept > 0)
@@ -563,8 +1239,7 @@ class _PlanHeader extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 '+ ${_fmtFull(plan.totalKept)} TZS kept aside',
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.accent),
+                style: AppTypography.caption.copyWith(color: AppColors.accent),
               ),
             ),
           const SizedBox(height: 10),
@@ -573,10 +1248,10 @@ class _PlanHeader extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value:             progress,
-              backgroundColor:   AppColors.surfaceVar,
-              valueColor:        const AlwaysStoppedAnimation(AppColors.accent),
-              minHeight:         6,
+              value: progress,
+              backgroundColor: AppColors.surfaceVar,
+              valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+              minHeight: 6,
             ),
           ),
           const SizedBox(height: 6),
@@ -586,11 +1261,12 @@ class _PlanHeader extends StatelessWidget {
             children: [
               Text(
                 'Effective: ${_fmtFull(plan.effectiveBalance)} TZS',
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textSecondary),
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
               Text(
-                'Target: ${_fmtFull(plan.targetCapital)} TZS',
+                'Target: ${_fmtFull(plan.effectiveTargetCapital)} TZS',
                 style: AppTypography.caption,
               ),
             ],
@@ -598,16 +1274,30 @@ class _PlanHeader extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              _StatPill(label: 'W', value: '${plan.wonSteps}',  color: AppColors.success),
+              _StatPill(
+                label: 'W',
+                value: '${plan.wonSteps}',
+                color: AppColors.success,
+              ),
               const SizedBox(width: 6),
-              _StatPill(label: 'L', value: '${plan.lostSteps}', color: AppColors.warning),
+              _StatPill(
+                label: 'L',
+                value: '${plan.lostSteps}',
+                color: AppColors.warning,
+              ),
               const SizedBox(width: 6),
-              _StatPill(label: 'Steps', value: '${plan.steps.length}',
-                  color: AppColors.textMuted),
+              _StatPill(
+                label: 'Steps',
+                value: '${plan.steps.length}',
+                color: AppColors.textMuted,
+              ),
               if (plan.totalKept > 0) ...[
                 const SizedBox(width: 6),
-                _StatPill(label: 'Kept', value: _fmt(plan.totalKept),
-                    color: AppColors.accent),
+                _StatPill(
+                  label: 'Kept',
+                  value: _fmt(plan.totalKept),
+                  color: AppColors.accent,
+                ),
               ],
             ],
           ),
@@ -619,8 +1309,8 @@ class _PlanHeader extends StatelessWidget {
   String _fmt(double v) => v >= 1000000
       ? '${(v / 1000000).toStringAsFixed(1)}M'
       : v >= 1000
-          ? '${(v / 1000).toStringAsFixed(0)}K'
-          : v.toStringAsFixed(0);
+      ? '${(v / 1000).toStringAsFixed(0)}K'
+      : v.toStringAsFixed(0);
 
   /// Full number with thousands separators (e.g. 1,234,567).
   String _fmtFull(double v) {
@@ -652,7 +1342,8 @@ class _PhasesBar extends StatelessWidget {
       child: Row(
         children: plan.phases.map((phase) {
           final isCurrent = phase.number == plan.currentPhase;
-          final isReached = plan.effectiveBalance >= phase.target;
+          final phaseTotal = plan.finalBalanceForPhase(phase.number);
+          final isReached = phaseTotal >= phase.target;
           return Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -661,33 +1352,48 @@ class _PhasesBar extends StatelessWidget {
                 color: isReached
                     ? AppColors.success.withValues(alpha: 0.15)
                     : isCurrent
-                        ? AppColors.accent.withValues(alpha: 0.15)
-                        : Colors.transparent,
+                    ? AppColors.accent.withValues(alpha: 0.15)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
                 border: isCurrent
-                    ? Border.all(color: AppColors.accent.withValues(alpha: 0.5), width: 0.5)
+                    ? Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.5),
+                        width: 0.5,
+                      )
                     : null,
               ),
               child: Column(
                 children: [
-                  Text(phase.name,
-                      style: AppTypography.chip.copyWith(
-                          fontSize: 9,
-                          color: isReached ? AppColors.success
-                              : isCurrent ? AppColors.accent
-                              : AppColors.textMuted),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis),
+                  Text(
+                    phase.name,
+                    style: AppTypography.chip.copyWith(
+                      fontSize: 9,
+                      color: isReached
+                          ? AppColors.success
+                          : isCurrent
+                          ? AppColors.accent
+                          : AppColors.textMuted,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 2),
-                  Text(_fmtShort(phase.target),
-                      style: AppTypography.caption.copyWith(
-                          fontSize: 10,
-                          color: isReached ? AppColors.success
-                              : AppColors.textSecondary),
-                      textAlign: TextAlign.center),
+                  Text(
+                    _fmtShort(phase.target),
+                    style: AppTypography.caption.copyWith(
+                      fontSize: 10,
+                      color: isReached
+                          ? AppColors.success
+                          : AppColors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                   if (isReached)
-                    const Icon(Icons.check_circle, size: 10,
-                        color: AppColors.success),
+                    const Icon(
+                      Icons.check_circle,
+                      size: 10,
+                      color: AppColors.success,
+                    ),
                 ],
               ),
             ),
@@ -700,8 +1406,8 @@ class _PhasesBar extends StatelessWidget {
   String _fmtShort(double v) => v >= 1000000
       ? '${(v / 1000000).toStringAsFixed(1)}M'
       : v >= 1000
-          ? '${(v / 1000).toStringAsFixed(0)}K'
-          : v.toStringAsFixed(0);
+      ? '${(v / 1000).toStringAsFixed(0)}K'
+      : v.toStringAsFixed(0);
 }
 
 // ── Status badge ─────────────────────────────────────────────────────────────
@@ -714,10 +1420,18 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     Color color;
     switch (status) {
-      case BettingPlanStatus.active:    color = AppColors.accent;  break;
-      case BettingPlanStatus.won:       color = AppColors.success; break;
-      case BettingPlanStatus.lost:      color = AppColors.warning; break;
-      case BettingPlanStatus.abandoned: color = AppColors.textMuted; break;
+      case BettingPlanStatus.active:
+        color = AppColors.accent;
+        break;
+      case BettingPlanStatus.won:
+        color = AppColors.success;
+        break;
+      case BettingPlanStatus.lost:
+        color = AppColors.warning;
+        break;
+      case BettingPlanStatus.abandoned:
+        color = AppColors.textMuted;
+        break;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -725,8 +1439,10 @@ class _StatusBadge extends StatelessWidget {
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(status.label,
-          style: AppTypography.chip.copyWith(color: color)),
+      child: Text(
+        status.label,
+        style: AppTypography.chip.copyWith(color: color),
+      ),
     );
   }
 }
@@ -735,7 +1451,7 @@ class _StatusBadge extends StatelessWidget {
 
 class _AddStepRow extends StatelessWidget {
   final BettingPlan plan;
-  final WidgetRef    ref;
+  final WidgetRef ref;
   const _AddStepRow({required this.plan, required this.ref});
 
   @override
@@ -747,17 +1463,22 @@ class _AddStepRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color:        AppColors.surfaceVar,
+          color: AppColors.surfaceVar,
           borderRadius: BorderRadius.circular(10),
-          border:       Border.all(color: AppColors.border, width: 0.5),
+          border: Border.all(color: AppColors.border, width: 0.5),
         ),
         child: Row(
           children: [
-            const Icon(Icons.add_circle_outline,
-                size: 16, color: AppColors.accent),
+            const Icon(
+              Icons.add_circle_outline,
+              size: 16,
+              color: AppColors.accent,
+            ),
             const SizedBox(width: 8),
-            Text('ADD STEP',
-                style: AppTypography.label.copyWith(color: AppColors.accent)),
+            Text(
+              'ADD STEP',
+              style: AppTypography.label.copyWith(color: AppColors.accent),
+            ),
             const Spacer(),
             if (plan.nextPendingStep != null)
               Text(
@@ -776,7 +1497,8 @@ class _AddStepRow extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => _AddStepSheet(plan: plan, ref: ref),
     );
   }
@@ -801,15 +1523,13 @@ class _AddStepSheetState extends State<_AddStepSheet> {
   void initState() {
     super.initState();
     stakeCtrl = TextEditingController();
-    oddsCtrl  = TextEditingController();
-    keptCtrl  = TextEditingController(text: '0');
+    oddsCtrl = TextEditingController();
+    keptCtrl = TextEditingController(text: '0');
 
     // Default phase: whatever the last step was assigned to, or 1.
     selectedPhase = widget.plan.steps.isNotEmpty
         ? widget.plan.steps.last.phase
-        : (widget.plan.phases.isNotEmpty
-            ? widget.plan.phases.first.number
-            : 1);
+        : (widget.plan.phases.isNotEmpty ? widget.plan.phases.first.number : 1);
 
     // Auto-suggest: balance after last won step
     stakeCtrl.text = widget.plan.currentBalance.toStringAsFixed(0);
@@ -830,33 +1550,50 @@ class _AddStepSheetState extends State<_AddStepSheet> {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-          20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        20,
+        20,
+        20,
+        MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(width: 36, height: 3,
-                decoration: BoxDecoration(color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2)))),
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
-                Text('STEP ${widget.plan.steps.length + 1}',
-                    style: AppTypography.label),
+                Text(
+                  'STEP ${widget.plan.steps.length + 1}',
+                  style: AppTypography.label,
+                ),
                 const Spacer(),
-                Text('Available: ${available.toStringAsFixed(0)} TZS',
-                    style: AppTypography.caption.copyWith(
-                        color: AppColors.accent)),
+                Text(
+                  'Available: ${available.toStringAsFixed(0)} TZS',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.accent,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
 
             // ── Phase picker (if plan has phases) ─────────────────────────
             if (widget.plan.phases.isNotEmpty) ...[
-              Text('PHASE',
-                  style: AppTypography.chip
-                      .copyWith(color: AppColors.textMuted)),
+              Text(
+                'PHASE',
+                style: AppTypography.chip.copyWith(color: AppColors.textMuted),
+              ),
               const SizedBox(height: 6),
               SizedBox(
                 height: 36,
@@ -867,28 +1604,30 @@ class _AddStepSheetState extends State<_AddStepSheet> {
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: GestureDetector(
-                        onTap: () =>
-                            setState(() => selectedPhase = p.number),
+                        onTap: () => setState(() => selectedPhase = p.number),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: sel
                                 ? AppColors.accent.withValues(alpha: 0.15)
                                 : AppColors.surfaceVar,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: sel
-                                  ? AppColors.accent
-                                  : AppColors.border,
+                              color: sel ? AppColors.accent : AppColors.border,
                               width: 0.5,
                             ),
                           ),
-                          child: Text(p.name,
-                              style: AppTypography.chip.copyWith(
-                                  color: sel
-                                      ? AppColors.accent
-                                      : AppColors.textMuted)),
+                          child: Text(
+                            p.name,
+                            style: AppTypography.chip.copyWith(
+                              color: sel
+                                  ? AppColors.accent
+                                  : AppColors.textMuted,
+                            ),
+                          ),
                         ),
                       ),
                     );
@@ -898,15 +1637,23 @@ class _AddStepSheetState extends State<_AddStepSheet> {
               const SizedBox(height: 12),
             ],
 
-            _Field(ctrl: keptCtrl,  hint: 'Keep aside (TZS) — 0 = all in',
-                inputType: TextInputType.number),
+            _Field(
+              ctrl: keptCtrl,
+              hint: 'Keep aside (TZS) — 0 = all in',
+              inputType: TextInputType.number,
+            ),
             const SizedBox(height: 8),
-            _Field(ctrl: stakeCtrl, hint: 'Stake (TZS)',
-                inputType: TextInputType.number),
+            _Field(
+              ctrl: stakeCtrl,
+              hint: 'Stake (TZS)',
+              inputType: TextInputType.number,
+            ),
             const SizedBox(height: 8),
-            _Field(ctrl: oddsCtrl,  hint: 'Odds (e.g. 10)',
-                inputType:
-                    const TextInputType.numberWithOptions(decimal: true)),
+            _Field(
+              ctrl: oddsCtrl,
+              hint: 'Odds (e.g. 10)',
+              inputType: const TextInputType.numberWithOptions(decimal: true),
+            ),
             const SizedBox(height: 6),
 
             // Auto-calc preview
@@ -917,16 +1664,18 @@ class _AddStepSheetState extends State<_AddStepSheet> {
                 builder: (_, __, ___) => ValueListenableBuilder(
                   valueListenable: keptCtrl,
                   builder: (_, __, ___) {
-                    final stake  = double.tryParse(stakeCtrl.text.trim()) ?? 0;
-                    final odds   = double.tryParse(oddsCtrl.text.trim()) ?? 0;
-                    final kept   = double.tryParse(keptCtrl.text.trim()) ?? 0;
-                    final ret    = stake * odds;
+                    final stake = double.tryParse(stakeCtrl.text.trim()) ?? 0;
+                    final odds = double.tryParse(oddsCtrl.text.trim()) ?? 0;
+                    final kept = double.tryParse(keptCtrl.text.trim()) ?? 0;
+                    final ret = stake * odds;
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Text(
                         'Return: ${_fmtNum(ret)} TZS${kept > 0 ? ' · Kept: ${_fmtNum(kept)} TZS' : ''}',
                         style: AppTypography.caption.copyWith(
-                            color: AppColors.textMuted, fontSize: 11),
+                          color: AppColors.textMuted,
+                          fontSize: 11,
+                        ),
                       ),
                     );
                   },
@@ -943,24 +1692,29 @@ class _AddStepSheetState extends State<_AddStepSheet> {
                   foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () async {
                   final stake = double.tryParse(stakeCtrl.text.trim());
-                  final odds  = double.tryParse(oddsCtrl.text.trim());
-                  final kept  = double.tryParse(keptCtrl.text.trim()) ?? 0;
+                  final odds = double.tryParse(oddsCtrl.text.trim());
+                  final kept = double.tryParse(keptCtrl.text.trim()) ?? 0;
                   if (stake == null || odds == null) return;
                   Navigator.pop(context);
                   await vm.addStepToPlan(
                     stake: stake,
-                    odds:  odds,
-                    kept:  kept,
+                    odds: odds,
+                    kept: kept,
                     phase: selectedPhase,
                   );
                 },
-                child: Text('ADD STEP',
-                    style: AppTypography.h3.copyWith(
-                        color: AppColors.background, fontSize: 13)),
+                child: Text(
+                  'ADD STEP',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.background,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ],
@@ -969,9 +1723,8 @@ class _AddStepSheetState extends State<_AddStepSheet> {
     );
   }
 
-  String _fmtNum(double v) => v >= 1000
-      ? '${(v / 1000).toStringAsFixed(0)}K'
-      : v.toStringAsFixed(0);
+  String _fmtNum(double v) =>
+      v >= 1000 ? '${(v / 1000).toStringAsFixed(0)}K' : v.toStringAsFixed(0);
 }
 
 // ── Steps table ───────────────────────────────────────────────────────────────
@@ -986,8 +1739,10 @@ class _StepsTable extends StatelessWidget {
     if (plan.steps.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text('No steps yet. Add your first bet above.',
-            style: AppTypography.caption),
+        child: Text(
+          'No steps yet. Add your first bet above.',
+          style: AppTypography.caption,
+        ),
       );
     }
 
@@ -1011,12 +1766,12 @@ class _StepsTable extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
           child: Row(
             children: [
-              _Col(text: '#',        flex: 1, header: true),
-              _Col(text: 'STAKE',    flex: 3, header: true),
-              _Col(text: 'ODDS',     flex: 2, header: true),
-              _Col(text: 'KEPT',     flex: 2, header: true),
-              _Col(text: 'RETURN',   flex: 3, header: true),
-              _Col(text: '',         flex: 3, header: true, align: TextAlign.right),
+              _Col(text: '#', flex: 1, header: true),
+              _Col(text: 'STAKE', flex: 3, header: true),
+              _Col(text: 'ODDS', flex: 2, header: true),
+              _Col(text: 'KEPT', flex: 2, header: true),
+              _Col(text: 'RETURN', flex: 3, header: true),
+              _Col(text: '', flex: 3, header: true, align: TextAlign.right),
             ],
           ),
         ),
@@ -1028,12 +1783,21 @@ class _StepsTable extends StatelessWidget {
           final phaseTotal = totals[n] ?? 0;
           return [
             Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 4, left: 4, right: 4),
+              padding: const EdgeInsets.only(
+                top: 10,
+                bottom: 4,
+                left: 4,
+                right: 4,
+              ),
               child: Row(
                 children: [
-                  Text(phaseLabel(n).toUpperCase(),
-                      style: AppTypography.chip.copyWith(
-                          color: AppColors.accent, letterSpacing: 1.5)),
+                  Text(
+                    phaseLabel(n).toUpperCase(),
+                    style: AppTypography.chip.copyWith(
+                      color: AppColors.accent,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
                   const Spacer(),
                   Text(
                     '${phaseTotal >= 0 ? '+' : ''}${_fmtSigned(phaseTotal)} TZS',
@@ -1046,12 +1810,14 @@ class _StepsTable extends StatelessWidget {
                 ],
               ),
             ),
-            ...phaseSteps.map((step) => _StepRow(
-                  step:       step,
-                  planId:     plan.id,
-                  vm:         vm,
-                  planActive: plan.isActive,
-                )),
+            ...phaseSteps.map(
+              (step) => _StepRow(
+                step: step,
+                planId: plan.id,
+                vm: vm,
+                planActive: plan.isActive,
+              ),
+            ),
           ];
         }),
 
@@ -1076,9 +1842,12 @@ class _StepsTable extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text('PLAN TOTAL',
-                          style: AppTypography.chip
-                              .copyWith(color: AppColors.textMuted)),
+                      Text(
+                        'PLAN TOTAL',
+                        style: AppTypography.chip.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                      ),
                       const Spacer(),
                       Text(
                         '${plan.plannedNet >= 0 ? '+' : ''}${_fmtSigned(plan.plannedNet)} TZS',
@@ -1108,27 +1877,35 @@ class _StepsTable extends StatelessWidget {
     final abs = v.abs();
     final prefix = v < 0 ? '-' : '';
     if (abs >= 1000000) return '$prefix${(abs / 1000000).toStringAsFixed(1)}M';
-    if (abs >= 1000)    return '$prefix${(abs / 1000).toStringAsFixed(0)}K';
+    if (abs >= 1000) return '$prefix${(abs / 1000).toStringAsFixed(0)}K';
     return '$prefix${abs.toStringAsFixed(0)}';
   }
 }
 
 class _StepRow extends StatelessWidget {
   final BettingPlanStep step;
-  final String          planId;
+  final String planId;
   final BettingViewModel vm;
-  final bool            planActive;
-  const _StepRow({required this.step, required this.planId,
-      required this.vm, required this.planActive});
+  final bool planActive;
+  const _StepRow({
+    required this.step,
+    required this.planId,
+    required this.vm,
+    required this.planActive,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isPending = step.status == BettingPlanStepStatus.pending;
-    final isWon     = step.status == BettingPlanStepStatus.won;
+    final isWon = step.status == BettingPlanStepStatus.won;
 
     Color rowColor = Colors.transparent;
-    if (isWon)                                     rowColor = AppColors.success.withValues(alpha: 0.05);
-    if (step.status == BettingPlanStepStatus.lost) rowColor = AppColors.warning.withValues(alpha: 0.05);
+    if (isWon) {
+      rowColor = AppColors.success.withValues(alpha: 0.05);
+    }
+    if (step.status == BettingPlanStepStatus.lost) {
+      rowColor = AppColors.warning.withValues(alpha: 0.05);
+    }
 
     return Container(
       color: rowColor,
@@ -1136,24 +1913,39 @@ class _StepRow extends StatelessWidget {
       child: Row(
         children: [
           _Col(text: '${step.step}', flex: 1),
-          _Col(text: _fmt(step.stake),             flex: 3),
-          _Col(text: '${step.odds}x',              flex: 2),
-          _Col(text: step.kept > 0 ? _fmt(step.kept) : '-', flex: 2,
-              color: step.kept > 0 ? AppColors.accent : AppColors.textMuted),
-          _Col(text: _fmt(step.potentialReturn),   flex: 3),
+          _Col(text: _fmt(step.stake), flex: 3),
+          _Col(text: '${step.odds}x', flex: 2),
+          _Col(
+            text: step.kept > 0 ? _fmt(step.kept) : '-',
+            flex: 2,
+            color: step.kept > 0 ? AppColors.accent : AppColors.textMuted,
+          ),
+          _Col(text: _fmt(step.potentialReturn), flex: 3),
           Expanded(
             flex: 3,
             child: isPending && planActive
                 ? Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      _MiniBtn(label: 'W', color: AppColors.success,
-                          onTap: () => vm.settlePlanStep(planId, step.step,
-                              BettingPlanStepStatus.won)),
+                      _MiniBtn(
+                        label: 'W',
+                        color: AppColors.success,
+                        onTap: () => vm.settlePlanStep(
+                          planId,
+                          step.step,
+                          BettingPlanStepStatus.won,
+                        ),
+                      ),
                       const SizedBox(width: 4),
-                      _MiniBtn(label: 'L', color: AppColors.warning,
-                          onTap: () => vm.settlePlanStep(planId, step.step,
-                              BettingPlanStepStatus.lost)),
+                      _MiniBtn(
+                        label: 'L',
+                        color: AppColors.warning,
+                        onTap: () => vm.settlePlanStep(
+                          planId,
+                          step.step,
+                          BettingPlanStepStatus.lost,
+                        ),
+                      ),
                     ],
                   )
                 : Align(
@@ -1161,9 +1953,12 @@ class _StepRow extends StatelessWidget {
                     child: Text(
                       isPending ? '-' : step.status.label,
                       style: AppTypography.chip.copyWith(
-                          color: isWon ? AppColors.success
-                              : isPending ? AppColors.textMuted
-                              : AppColors.warning),
+                        color: isWon
+                            ? AppColors.success
+                            : isPending
+                            ? AppColors.textMuted
+                            : AppColors.warning,
+                      ),
                     ),
                   ),
           ),
@@ -1172,7 +1967,8 @@ class _StepRow extends StatelessWidget {
     );
   }
 
-  String _fmt(double v) => v >= 1000 ? '${(v / 1000).toStringAsFixed(0)}K' : v.toStringAsFixed(0);
+  String _fmt(double v) =>
+      v >= 1000 ? '${(v / 1000).toStringAsFixed(0)}K' : v.toStringAsFixed(0);
 }
 
 // ── Plan summary card (aggregate stats for past plans) ───────────────────────
@@ -1183,10 +1979,14 @@ class _PlanSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final wonPlans  = plans.where((p) => p.status == BettingPlanStatus.won).length;
-    final lostPlans = plans.where((p) => p.status == BettingPlanStatus.lost).length;
+    final wonPlans = plans
+        .where((p) => p.status == BettingPlanStatus.won)
+        .length;
+    final lostPlans = plans
+        .where((p) => p.status == BettingPlanStatus.lost)
+        .length;
     final totalKept = plans.fold(0.0, (s, p) => s + p.totalKept);
-    final totalNet  = plans.fold(0.0, (s, p) => s + p.netProfit);
+    final totalNet = plans.fold(0.0, (s, p) => s + p.netProfit);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1197,11 +1997,26 @@ class _PlanSummaryCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _SummaryItem(label: 'WON', value: '$wonPlans', color: AppColors.success),
-          _SummaryItem(label: 'LOST', value: '$lostPlans', color: AppColors.warning),
-          _SummaryItem(label: 'KEPT', value: _fmtShort(totalKept), color: AppColors.accent),
-          _SummaryItem(label: 'NET', value: '${totalNet >= 0 ? '+' : ''}${_fmtShort(totalNet)}',
-              color: totalNet >= 0 ? AppColors.success : AppColors.warning),
+          _SummaryItem(
+            label: 'WON',
+            value: '$wonPlans',
+            color: AppColors.success,
+          ),
+          _SummaryItem(
+            label: 'LOST',
+            value: '$lostPlans',
+            color: AppColors.warning,
+          ),
+          _SummaryItem(
+            label: 'KEPT',
+            value: _fmtShort(totalKept),
+            color: AppColors.accent,
+          ),
+          _SummaryItem(
+            label: 'NET',
+            value: '${totalNet >= 0 ? '+' : ''}${_fmtShort(totalNet)}',
+            color: totalNet >= 0 ? AppColors.success : AppColors.warning,
+          ),
         ],
       ),
     );
@@ -1211,7 +2026,7 @@ class _PlanSummaryCard extends StatelessWidget {
     final abs = v.abs();
     final prefix = v < 0 ? '-' : '';
     if (abs >= 1000000) return '$prefix${(abs / 1000000).toStringAsFixed(1)}M';
-    if (abs >= 1000)    return '$prefix${(abs / 1000).toStringAsFixed(0)}K';
+    if (abs >= 1000) return '$prefix${(abs / 1000).toStringAsFixed(0)}K';
     return '$prefix${abs.toStringAsFixed(0)}';
   }
 }
@@ -1219,17 +2034,29 @@ class _PlanSummaryCard extends StatelessWidget {
 class _SummaryItem extends StatelessWidget {
   final String label;
   final String value;
-  final Color  color;
-  const _SummaryItem({required this.label, required this.value, required this.color});
+  final Color color;
+  const _SummaryItem({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: AppTypography.h3.copyWith(color: color, fontSize: 16)),
+        Text(
+          value,
+          style: AppTypography.h3.copyWith(color: color, fontSize: 16),
+        ),
         const SizedBox(height: 2),
-        Text(label, style: AppTypography.chip.copyWith(
-            color: AppColors.textMuted, fontSize: 9)),
+        Text(
+          label,
+          style: AppTypography.chip.copyWith(
+            color: AppColors.textMuted,
+            fontSize: 9,
+          ),
+        ),
       ],
     );
   }
@@ -1249,19 +2076,24 @@ class _EmptyPlanCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 32),
         decoration: BoxDecoration(
-          color:        AppColors.surface,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(12),
-          border:       Border.all(color: AppColors.border, width: 0.5),
+          border: Border.all(color: AppColors.border, width: 0.5),
         ),
         child: Column(
           children: [
-            const Icon(Icons.route_outlined,
-                size: 32, color: AppColors.textMuted),
+            const Icon(
+              Icons.route_outlined,
+              size: 32,
+              color: AppColors.textMuted,
+            ),
             const SizedBox(height: 10),
             Text('No active plan', style: AppTypography.body),
             const SizedBox(height: 4),
-            Text('Tap NEW PLAN to define your road to target',
-                style: AppTypography.caption),
+            Text(
+              'Tap NEW PLAN to define your road to target',
+              style: AppTypography.caption,
+            ),
           ],
         ),
       ),
@@ -1272,20 +2104,22 @@ class _EmptyPlanCard extends StatelessWidget {
 // ── Past plan tile ────────────────────────────────────────────────────────────
 
 class _PastPlanTile extends StatelessWidget {
-  final BettingPlan  plan;
+  final BettingPlan plan;
   final VoidCallback onDelete;
   const _PastPlanTile({required this.plan, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
-    final netColor = plan.netProfit >= 0 ? AppColors.success : AppColors.warning;
+    final netColor = plan.netProfit >= 0
+        ? AppColors.success
+        : AppColors.warning;
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color:        AppColors.surface,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(10),
-        border:       Border.all(color: AppColors.border, width: 0.5),
+        border: Border.all(color: AppColors.border, width: 0.5),
       ),
       child: Row(
         children: [
@@ -1298,8 +2132,9 @@ class _PastPlanTile extends StatelessWidget {
                 Text(plan.name, style: AppTypography.body),
                 Text(
                   'Final: ${_fmt(plan.effectiveBalance)} / ${_fmt(plan.targetCapital)} TZS',
-                  style: AppTypography.caption
-                      .copyWith(color: AppColors.textSecondary),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 Row(
                   children: [
@@ -1308,12 +2143,14 @@ class _PastPlanTile extends StatelessWidget {
                       style: AppTypography.caption,
                     ),
                     if (plan.totalKept > 0) ...[
-                      Text(' · Kept ${_fmt(plan.totalKept)}',
-                          style: AppTypography.caption.copyWith(
-                              color: AppColors.accent)),
+                      Text(
+                        ' · Kept ${_fmt(plan.totalKept)}',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.accent,
+                        ),
+                      ),
                     ],
-                    Text(' · Net ',
-                        style: AppTypography.caption),
+                    Text(' · Net ', style: AppTypography.caption),
                     Text(
                       '${plan.netProfit >= 0 ? '+' : ''}${_fmt(plan.netProfit)}',
                       style: AppTypography.caption.copyWith(color: netColor),
@@ -1324,8 +2161,11 @@ class _PastPlanTile extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline,
-                size: 18, color: AppColors.textMuted),
+            icon: const Icon(
+              Icons.delete_outline,
+              size: 18,
+              color: AppColors.textMuted,
+            ),
             onPressed: onDelete,
           ),
         ],
@@ -1337,7 +2177,7 @@ class _PastPlanTile extends StatelessWidget {
     final abs = v.abs();
     final prefix = v < 0 ? '-' : '';
     if (abs >= 1000000) return '$prefix${(abs / 1000000).toStringAsFixed(1)}M';
-    if (abs >= 1000)    return '$prefix${(abs / 1000).toStringAsFixed(0)}K';
+    if (abs >= 1000) return '$prefix${(abs / 1000).toStringAsFixed(0)}K';
     return '$prefix${abs.toStringAsFixed(0)}';
   }
 }
@@ -1345,16 +2185,16 @@ class _PastPlanTile extends StatelessWidget {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 class _Col extends StatelessWidget {
-  final String    text;
-  final int       flex;
-  final bool      header;
+  final String text;
+  final int flex;
+  final bool header;
   final TextAlign align;
-  final Color?    color;
+  final Color? color;
   const _Col({
     required this.text,
-    this.flex   = 1,
+    this.flex = 1,
     this.header = false,
-    this.align  = TextAlign.left,
+    this.align = TextAlign.left,
     this.color,
   });
 
@@ -1368,7 +2208,8 @@ class _Col extends StatelessWidget {
         style: header
             ? AppTypography.chip.copyWith(color: AppColors.textMuted)
             : AppTypography.caption.copyWith(
-                color: color ?? AppColors.textSecondary),
+                color: color ?? AppColors.textSecondary,
+              ),
       ),
     );
   }
@@ -1376,9 +2217,13 @@ class _Col extends StatelessWidget {
 
 class _MiniBtn extends StatelessWidget {
   final String label;
-  final Color  color;
+  final Color color;
   final VoidCallback onTap;
-  const _MiniBtn({required this.label, required this.color, required this.onTap});
+  const _MiniBtn({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1387,12 +2232,14 @@ class _MiniBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color:        color.withValues(alpha: 0.15),
+          color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(5),
-          border:       Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
+          border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
         ),
-        child: Text(label,
-            style: AppTypography.chip.copyWith(color: color, fontSize: 10)),
+        child: Text(
+          label,
+          style: AppTypography.chip.copyWith(color: color, fontSize: 10),
+        ),
       ),
     );
   }
@@ -1401,19 +2248,25 @@ class _MiniBtn extends StatelessWidget {
 class _StatPill extends StatelessWidget {
   final String label;
   final String value;
-  final Color  color;
-  const _StatPill({required this.label, required this.value, required this.color});
+  final Color color;
+  const _StatPill({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color:        color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(5),
       ),
-      child: Text('$label: $value',
-          style: AppTypography.chip.copyWith(color: color, fontSize: 10)),
+      child: Text(
+        '$label: $value',
+        style: AppTypography.chip.copyWith(color: color, fontSize: 10),
+      ),
     );
   }
 }
@@ -1430,12 +2283,17 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color:        AppColors.accent.withValues(alpha: 0.15),
+          color: AppColors.accent.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(8),
-          border:       Border.all(color: AppColors.accent.withValues(alpha: 0.4), width: 0.5),
+          border: Border.all(
+            color: AppColors.accent.withValues(alpha: 0.4),
+            width: 0.5,
+          ),
         ),
-        child: Text(label,
-            style: AppTypography.chip.copyWith(color: AppColors.accent)),
+        child: Text(
+          label,
+          style: AppTypography.chip.copyWith(color: AppColors.accent),
+        ),
       ),
     );
   }
@@ -1445,13 +2303,16 @@ class _Field extends StatelessWidget {
   final TextEditingController ctrl;
   final String hint;
   final TextInputType inputType;
-  const _Field({required this.ctrl, required this.hint,
-      this.inputType = TextInputType.text});
+  const _Field({
+    required this.ctrl,
+    required this.hint,
+    this.inputType = TextInputType.text,
+  });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
-      controller:   ctrl,
+      controller: ctrl,
       keyboardType: inputType,
       style: AppTypography.body.copyWith(color: AppColors.textPrimary),
       decoration: InputDecoration(hintText: hint),

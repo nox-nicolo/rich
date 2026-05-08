@@ -61,9 +61,9 @@ class MilestoneViewModel extends StateNotifier<MilestoneState> {
           m.status == MilestoneStatus.active &&
           now.isAfter(m.targetDate)) {
         final rolled = m.copyWith(
-          horizon:    Horizon.yearly,
+          horizon: Horizon.yearly,
           targetDate: defaultTargetFor(Horizon.yearly, from: now),
-          updatedAt:  now,
+          updatedAt: now,
         );
         await _repo.save(rolled);
         result.add(rolled);
@@ -79,21 +79,26 @@ class MilestoneViewModel extends StateNotifier<MilestoneState> {
   Future<void> create({
     required String title,
     String? note,
+    List<String> processSteps = const [],
     required Horizon horizon,
     DateTime? targetDate,
   }) async {
     final now = DateTime.now();
     final target = targetDate ?? defaultTargetFor(horizon, from: now);
     final m = Milestone(
-      id:         const Uuid().v4(),
-      title:      title.trim(),
-      note:       (note == null || note.trim().isEmpty) ? null : note.trim(),
-      horizon:    horizon,
-      status:     MilestoneStatus.active,
-      progress:   0,
-      createdAt:  now,
+      id: const Uuid().v4(),
+      title: title.trim(),
+      note: (note == null || note.trim().isEmpty) ? null : note.trim(),
+      processSteps: processSteps
+          .map((step) => step.trim())
+          .where((step) => step.isNotEmpty)
+          .toList(),
+      horizon: horizon,
+      status: MilestoneStatus.active,
+      progress: 0,
+      createdAt: now,
       targetDate: target,
-      updatedAt:  now,
+      updatedAt: now,
     );
     await _repo.save(m);
     await _load();
@@ -108,39 +113,47 @@ class MilestoneViewModel extends StateNotifier<MilestoneState> {
     final existing = state.all.firstWhere((m) => m.id == id);
     final clamped = progress.clamp(0.0, 1.0);
     final markDone = clamped >= 1.0;
-    await _repo.save(existing.copyWith(
-      progress:  clamped,
-      status:    markDone ? MilestoneStatus.done : existing.status,
-      updatedAt: DateTime.now(),
-    ));
+    await _repo.save(
+      existing.copyWith(
+        progress: clamped,
+        status: markDone ? MilestoneStatus.done : existing.status,
+        updatedAt: DateTime.now(),
+      ),
+    );
     await _load();
   }
 
   Future<void> markDone(String id) async {
     final existing = state.all.firstWhere((m) => m.id == id);
-    await _repo.save(existing.copyWith(
-      status:    MilestoneStatus.done,
-      progress:  1.0,
-      updatedAt: DateTime.now(),
-    ));
+    await _repo.save(
+      existing.copyWith(
+        status: MilestoneStatus.done,
+        progress: 1.0,
+        updatedAt: DateTime.now(),
+      ),
+    );
     await _load();
   }
 
   Future<void> markDropped(String id) async {
     final existing = state.all.firstWhere((m) => m.id == id);
-    await _repo.save(existing.copyWith(
-      status:    MilestoneStatus.dropped,
-      updatedAt: DateTime.now(),
-    ));
+    await _repo.save(
+      existing.copyWith(
+        status: MilestoneStatus.dropped,
+        updatedAt: DateTime.now(),
+      ),
+    );
     await _load();
   }
 
   Future<void> reactivate(String id) async {
     final existing = state.all.firstWhere((m) => m.id == id);
-    await _repo.save(existing.copyWith(
-      status:    MilestoneStatus.active,
-      updatedAt: DateTime.now(),
-    ));
+    await _repo.save(
+      existing.copyWith(
+        status: MilestoneStatus.active,
+        updatedAt: DateTime.now(),
+      ),
+    );
     await _load();
   }
 
@@ -152,10 +165,11 @@ class MilestoneViewModel extends StateNotifier<MilestoneState> {
 
 // ── Providers ────────────────────────────────────────────────────────────────
 
-final milestoneRepositoryProvider =
-    Provider<MilestoneRepository>((_) => MilestoneRepository());
+final milestoneRepositoryProvider = Provider<MilestoneRepository>(
+  (_) => MilestoneRepository(),
+);
 
 final milestoneViewModelProvider =
     StateNotifierProvider<MilestoneViewModel, MilestoneState>(
-  (ref) => MilestoneViewModel(ref.read(milestoneRepositoryProvider)),
-);
+      (ref) => MilestoneViewModel(ref.read(milestoneRepositoryProvider)),
+    );

@@ -7,11 +7,43 @@ import '../model/focus_session_model.dart';
 import '../model/meeting_model.dart';
 import '../model/work_rule_model.dart';
 
+/// Per-day summary of tasks that were active on a given date.
+/// Returned by recycleAndLoadToday() for dates that have now rolled over
+/// so the ViewModel can persist them to the tracking/reports system.
+class DayTaskSnapshot {
+  final DateTime date;
+  final int scheduled; // total tasks active that day
+  final int done;      // completed that day
+  final int pending;   // not done, not blocked — carried forward
+  final int blocked;   // blocked
+
+  const DayTaskSnapshot({
+    required this.date,
+    required this.scheduled,
+    required this.done,
+    required this.pending,
+    required this.blocked,
+  });
+
+  Map<String, int> toTrackingData() => {
+    'tasksScheduled': scheduled,
+    'tasksDone': done,
+    'tasksPending': pending,
+    'tasksBlocked': blocked,
+  };
+}
+
 class RecycleResult {
   final List<TaskModel> todayTasks;
-  final List<TaskModel> bumpedTasks; // tasks whose scheduledStart was moved forward
+  final List<TaskModel> bumpedTasks;
+  /// One snapshot per prior day that had tasks. Used for report recording.
+  final List<DayTaskSnapshot> priorSnapshots;
 
-  const RecycleResult({required this.todayTasks, required this.bumpedTasks});
+  const RecycleResult({
+    required this.todayTasks,
+    required this.bumpedTasks,
+    this.priorSnapshots = const [],
+  });
 }
 
 class WorkRepository {
@@ -45,10 +77,9 @@ class WorkRepository {
     await box.put(_tasksKey, existing);
   }
 
-  // Recycle pending tasks from prior days into today (or next day if today's
-  // slot has already passed). Persists any bumps. Returns today's list plus
-  // the list of tasks that were bumped (so the caller can reschedule
-  // notifications for them).
+  // Carry incomplete tasks from prior days into today. Preserves createdAt on
+  // all tasks — only scheduledFor is bumped forward. Builds per-day snapshots
+  // for the reporting system so every day's task state is recorded.
   Future<RecycleResult> recycleAndLoadToday() async {
     final box = HiveService.box(HiveBoxes.workTasks);
     final List<dynamic> raw =
@@ -61,6 +92,9 @@ class WorkRepository {
     final now = DateTime.now();
     final todayDate = DateTime(now.year, now.month, now.day);
 
+    // Group stale incomplete tasks by their active date for snapshot building
+    final Map<String, List<TaskModel>> staleByDay = {};
+
     final bumped = <TaskModel>[];
     final updated = <TaskModel>[];
 
@@ -70,23 +104,26 @@ class WorkRepository {
         continue;
       }
 
-      // The "active date" is the scheduled date if present, else createdAt
-      final anchor = t.scheduledStart ?? t.createdAt;
-      final anchorDate = DateTime(anchor.year, anchor.month, anchor.day);
+      final anchorDate = _dayOf(t.activeDate);
 
       if (!anchorDate.isBefore(todayDate)) {
+        // Today or future — no change needed
         updated.add(t);
         continue;
       }
 
-      // Compute days to bump so the anchor lands on today
-      int daysDelta = todayDate.difference(anchorDate).inDays;
+      // Stale: record in snapshot map keyed by active day
+      final dayKey = _isoDate(anchorDate);
+      staleByDay.putIfAbsent(dayKey, () => []).add(t);
+
+      // Bump forward to today (preserving createdAt)
+      final daysDelta = todayDate.difference(anchorDate).inDays;
 
       TaskModel bumpedTask;
       if (t.hasSchedule) {
         var newStart = t.scheduledStart!.add(Duration(days: daysDelta));
         var newEnd = t.scheduledEnd!.add(Duration(days: daysDelta));
-        // If today's slot is already in the past, push to next day
+        // If today's slot is already past, push one more day
         if (newStart.isBefore(now)) {
           newStart = newStart.add(const Duration(days: 1));
           newEnd = newEnd.add(const Duration(days: 1));
@@ -94,25 +131,39 @@ class WorkRepository {
         bumpedTask = t.copyWith(
           scheduledStart: newStart,
           scheduledEnd: newEnd,
-          actualStart: null, // reset for the new day
+          scheduledFor: _dayOf(newStart),
+          carriedOverCount: t.carriedOverCount + 1,
+          // actualStart intentionally not copied — resets for the new day
+        );
+        // copyWith doesn't clear actualStart; re-create to clear it
+        bumpedTask = TaskModel(
+          id: bumpedTask.id,
+          title: bumpedTask.title,
+          description: bumpedTask.description,
+          priority: bumpedTask.priority,
+          status: bumpedTask.status,
+          createdAt: bumpedTask.createdAt,
+          scheduledFor: bumpedTask.scheduledFor,
+          carriedOverCount: bumpedTask.carriedOverCount,
+          completedAt: bumpedTask.completedAt,
+          dueDate: bumpedTask.dueDate,
+          scheduledStart: newStart,
+          scheduledEnd: newEnd,
+          actualStart: null,
+          blockedReason: bumpedTask.blockedReason,
+          tags: bumpedTask.tags,
         );
       } else {
-        // Untimed — just shift createdAt forward so it shows today
-        // (createdAt is final, so we re-create the model)
-        final newCreated = DateTime(
-          todayDate.year,
-          todayDate.month,
-          todayDate.day,
-          t.createdAt.hour,
-          t.createdAt.minute,
-        );
+        // Untimed — only bump scheduledFor; createdAt stays as the origin
         bumpedTask = TaskModel(
           id: t.id,
           title: t.title,
           description: t.description,
           priority: t.priority,
           status: t.status,
-          createdAt: newCreated,
+          createdAt: t.createdAt,        // immutable — origin date preserved
+          scheduledFor: todayDate,        // active day = today
+          carriedOverCount: t.carriedOverCount + 1,
           completedAt: t.completedAt,
           dueDate: t.dueDate,
           scheduledStart: null,
@@ -127,54 +178,72 @@ class WorkRepository {
       bumped.add(bumpedTask);
     }
 
-    // Persist if anything changed
     if (bumped.isNotEmpty) {
       await box.put(_tasksKey, updated.map((t) => t.toMap()).toList());
     }
 
+    // Build per-day snapshots for every prior day that had stale tasks.
+    // Completed tasks from those days are fetched separately to count done.
+    final completedAll = all.where((t) => t.isCompleted).toList();
+    final priorSnapshots = <DayTaskSnapshot>[];
+
+    for (final entry in staleByDay.entries) {
+      final date = DateTime.parse(entry.key);
+      final incompleteOnDay = entry.value;
+
+      // Count completed tasks whose completedAt falls on the same day
+      final doneOnDay = completedAll.where((t) {
+        if (t.completedAt == null) return false;
+        return _isoDate(_dayOf(t.completedAt!)) == entry.key;
+      }).length;
+
+      final pending = incompleteOnDay
+          .where((t) => !t.isBlocked)
+          .length;
+      final blocked = incompleteOnDay
+          .where((t) => t.isBlocked)
+          .length;
+
+      priorSnapshots.add(DayTaskSnapshot(
+        date: date,
+        scheduled: incompleteOnDay.length + doneOnDay,
+        done: doneOnDay,
+        pending: pending,
+        blocked: blocked,
+      ));
+    }
+
     final todayTasks = updated.where((t) {
-      final anchor = t.scheduledStart ?? t.createdAt;
+      final anchor = _dayOf(t.activeDate);
       return anchor.year == todayDate.year &&
           anchor.month == todayDate.month &&
           anchor.day == todayDate.day;
     }).toList()
-      ..sort((a, b) {
-        // Scheduled tasks first, ordered by start time; then by priority
-        if (a.hasSchedule && b.hasSchedule) {
-          return a.scheduledStart!.compareTo(b.scheduledStart!);
-        }
-        if (a.hasSchedule) return -1;
-        if (b.hasSchedule) return 1;
-        return a.priority.index.compareTo(b.priority.index);
-      });
+      ..sort(_taskOrder);
 
-    return RecycleResult(todayTasks: todayTasks, bumpedTasks: bumped);
+    return RecycleResult(
+      todayTasks: todayTasks,
+      bumpedTasks: bumped,
+      priorSnapshots: priorSnapshots,
+    );
   }
 
-  // Kept for backwards compatibility — synchronous, no recycling.
+  // Synchronous load — no recycling (used as fallback).
   List<TaskModel> loadTodayTasks() {
     final box = HiveService.box(HiveBoxes.workTasks);
     final List<dynamic> raw =
         List.from(box.get(_tasksKey, defaultValue: []) as List);
-    final now = DateTime.now();
+    final today = _dayOf(DateTime.now());
     return raw
-        .map((e) =>
-            TaskModel.fromMap(Map<String, dynamic>.from(e as Map)))
+        .map((e) => TaskModel.fromMap(Map<String, dynamic>.from(e as Map)))
         .where((t) {
-          final anchor = t.scheduledStart ?? t.createdAt;
-          return anchor.year == now.year &&
-              anchor.month == now.month &&
-              anchor.day == now.day;
+          final anchor = _dayOf(t.activeDate);
+          return anchor.year == today.year &&
+              anchor.month == today.month &&
+              anchor.day == today.day;
         })
         .toList()
-      ..sort((a, b) {
-        if (a.hasSchedule && b.hasSchedule) {
-          return a.scheduledStart!.compareTo(b.scheduledStart!);
-        }
-        if (a.hasSchedule) return -1;
-        if (b.hasSchedule) return 1;
-        return a.priority.index.compareTo(b.priority.index);
-      });
+      ..sort(_taskOrder);
   }
 
   List<TaskModel> loadAllTasks() {
@@ -182,9 +251,17 @@ class WorkRepository {
     final List<dynamic> raw =
         List.from(box.get(_tasksKey, defaultValue: []) as List);
     return raw
-        .map((e) =>
-            TaskModel.fromMap(Map<String, dynamic>.from(e as Map)))
+        .map((e) => TaskModel.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
+  }
+
+  /// All tasks (any status) whose active date falls within [from, to).
+  /// Used by reports to surface every task — completed, pending, or blocked.
+  List<TaskModel> loadAllTasksBetween(DateTime from, DateTime to) {
+    return loadAllTasks().where((t) {
+      final anchor = _dayOf(t.activeDate);
+      return !anchor.isBefore(from) && anchor.isBefore(to);
+    }).toList();
   }
 
   // For monthly reports — returns completed tasks within the given range.
@@ -296,5 +373,24 @@ class WorkRepository {
         .map((e) => WorkRuleModel.fromMap(
             Map<String, dynamic>.from(e as Map)))
         .toList();
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  static DateTime _dayOf(DateTime dt) =>
+      DateTime(dt.year, dt.month, dt.day);
+
+  static String _isoDate(DateTime dt) =>
+      '${dt.year.toString().padLeft(4, '0')}-'
+      '${dt.month.toString().padLeft(2, '0')}-'
+      '${dt.day.toString().padLeft(2, '0')}';
+
+  static int _taskOrder(TaskModel a, TaskModel b) {
+    if (a.hasSchedule && b.hasSchedule) {
+      return a.scheduledStart!.compareTo(b.scheduledStart!);
+    }
+    if (a.hasSchedule) return -1;
+    if (b.hasSchedule) return 1;
+    return a.priority.index.compareTo(b.priority.index);
   }
 }

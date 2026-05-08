@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/glossy_card.dart';
 import '../../../../core/widgets/rich_section_header.dart';
 import '../../../../providers/providers.dart';
 
@@ -60,37 +61,33 @@ class _LockTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius:
-            BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(
-          color: AppColors.warning.withValues(alpha: 0.3),
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.lock_outline,
-              size: AppSpacing.iconSm,
-              color: AppColors.warning),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: AppTypography.chip.copyWith(
-                        color: AppColors.warning)),
-                const SizedBox(height: 2),
-                Text(reason, style: AppTypography.caption),
-              ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: GlossyCard(
+        padding:      const EdgeInsets.all(AppSpacing.md),
+        radius:       AppSpacing.radiusMd,
+        accentBorder: AppColors.warning,
+        accentTint:   AppColors.warning,
+        child: Row(
+          children: [
+            const Icon(Icons.lock_outline,
+                size: AppSpacing.iconSm,
+                color: AppColors.warning),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: AppTypography.chip
+                          .copyWith(color: AppColors.warning)),
+                  const SizedBox(height: 2),
+                  Text(reason, style: AppTypography.caption),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -102,33 +99,29 @@ class _WarningTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius:
-            BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(
-          color: AppColors.caution.withValues(alpha: 0.3),
-          width: 0.5,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
+      child: GlossyCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical:   AppSpacing.sm,
         ),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_outlined,
-              size: AppSpacing.iconSm,
-              color: AppColors.caution),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(message,
-                style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary)),
-          ),
-        ],
+        radius:       AppSpacing.radiusMd,
+        accentBorder: AppColors.caution,
+        accentTint:   AppColors.caution,
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_outlined,
+                size: AppSpacing.iconSm,
+                color: AppColors.caution),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(message,
+                  style: AppTypography.bodySmall
+                      .copyWith(color: AppColors.textSecondary)),
+            ),
+          ],
+        ),
       ),
     );
   }

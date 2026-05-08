@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/router/route_names.dart';
+import '../../../../core/widgets/glossy_card.dart';
 import '../../../finance/model/finance_models.dart';
 import '../../../finance/viewmodel/finance_viewmodel.dart';
 
@@ -26,19 +27,11 @@ class FinanceDashboardCard extends ConsumerWidget {
     final net    = month.netCashFlow;
     final netPos = net >= 0;
 
-    return GestureDetector(
-      onTap: () => context.push(RouteNames.finance),
-      child: Container(
-        padding: const EdgeInsets.all(AppSpacing.cardPad),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
-          border: Border.all(
-            color: const Color(0xFF27AE60).withValues(alpha: 0.2),
-            width: 0.5,
-          ),
-        ),
-        child: Column(
+    return GlossyCard(
+      onTap:        () => context.push(RouteNames.finance),
+      accentBorder: const Color(0xFF27AE60),
+      radius:       AppSpacing.radiusXl,
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
@@ -118,7 +111,6 @@ class FinanceDashboardCard extends ConsumerWidget {
             _buildHealthMessage(state),
           ],
         ),
-      ),
     );
   }
 

@@ -17,15 +17,19 @@ enum Horizon { sixMonth, yearly }
 extension HorizonX on Horizon {
   String get label {
     switch (this) {
-      case Horizon.sixMonth: return '6-Month';
-      case Horizon.yearly:   return 'Yearly';
+      case Horizon.sixMonth:
+        return '6-Month';
+      case Horizon.yearly:
+        return 'Yearly';
     }
   }
 
   int get months {
     switch (this) {
-      case Horizon.sixMonth: return 6;
-      case Horizon.yearly:   return 12;
+      case Horizon.sixMonth:
+        return 6;
+      case Horizon.yearly:
+        return 12;
     }
   }
 
@@ -44,9 +48,12 @@ enum MilestoneStatus { active, done, dropped }
 extension MilestoneStatusX on MilestoneStatus {
   String get label {
     switch (this) {
-      case MilestoneStatus.active:  return 'Active';
-      case MilestoneStatus.done:    return 'Done';
-      case MilestoneStatus.dropped: return 'Dropped';
+      case MilestoneStatus.active:
+        return 'Active';
+      case MilestoneStatus.done:
+        return 'Done';
+      case MilestoneStatus.dropped:
+        return 'Dropped';
     }
   }
 
@@ -64,6 +71,7 @@ class Milestone {
   final String id;
   final String title;
   final String? note;
+  final List<String> processSteps;
   final Horizon horizon;
   final MilestoneStatus status;
   final double progress; // 0..1
@@ -75,6 +83,7 @@ class Milestone {
     required this.id,
     required this.title,
     this.note,
+    this.processSteps = const [],
     required this.horizon,
     required this.status,
     required this.progress,
@@ -88,6 +97,7 @@ class Milestone {
     String? title,
     String? note,
     bool clearNote = false,
+    List<String>? processSteps,
     Horizon? horizon,
     MilestoneStatus? status,
     double? progress,
@@ -96,20 +106,21 @@ class Milestone {
     DateTime? updatedAt,
   }) {
     return Milestone(
-      id:         id          ?? this.id,
-      title:      title       ?? this.title,
-      note:       clearNote ? null : (note ?? this.note),
-      horizon:    horizon     ?? this.horizon,
-      status:     status      ?? this.status,
-      progress:   progress    ?? this.progress,
-      createdAt:  createdAt   ?? this.createdAt,
-      targetDate: targetDate  ?? this.targetDate,
-      updatedAt:  updatedAt   ?? this.updatedAt,
+      id: id ?? this.id,
+      title: title ?? this.title,
+      note: clearNote ? null : (note ?? this.note),
+      processSteps: processSteps ?? this.processSteps,
+      horizon: horizon ?? this.horizon,
+      status: status ?? this.status,
+      progress: progress ?? this.progress,
+      createdAt: createdAt ?? this.createdAt,
+      targetDate: targetDate ?? this.targetDate,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  bool get isActive    => status == MilestoneStatus.active;
-  bool get isOverdue   => isActive && DateTime.now().isAfter(targetDate);
+  bool get isActive => status == MilestoneStatus.active;
+  bool get isOverdue => isActive && DateTime.now().isAfter(targetDate);
 
   // Progress we'd expect to see right now based on time elapsed since
   // creation. Used to flag an "at risk" milestone whose actual progress is
@@ -125,28 +136,33 @@ class Milestone {
       isActive && progress < expectedProgress - 0.15 && !isOverdue;
 
   Map<String, dynamic> toMap() => {
-        'id':         id,
-        'title':      title,
-        'note':       note,
-        'horizon':    horizon.name,
-        'status':     status.name,
-        'progress':   progress,
-        'createdAt':  createdAt.toIso8601String(),
-        'targetDate': targetDate.toIso8601String(),
-        'updatedAt':  updatedAt.toIso8601String(),
-      };
+    'id': id,
+    'title': title,
+    'note': note,
+    'processSteps': processSteps,
+    'horizon': horizon.name,
+    'status': status.name,
+    'progress': progress,
+    'createdAt': createdAt.toIso8601String(),
+    'targetDate': targetDate.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+  };
 
   factory Milestone.fromMap(Map<String, dynamic> m) {
     return Milestone(
-      id:         m['id'] ?? '',
-      title:      m['title'] ?? '',
-      note:       m['note'] as String?,
-      horizon:    HorizonX.fromString(m['horizon'] ?? 'sixMonth'),
-      status:     MilestoneStatusX.fromString(m['status'] ?? 'active'),
-      progress:   (m['progress'] ?? 0).toDouble(),
-      createdAt:  DateTime.tryParse(m['createdAt'] ?? '') ?? DateTime.now(),
+      id: m['id'] ?? '',
+      title: m['title'] ?? '',
+      note: m['note'] as String?,
+      processSteps: (m['processSteps'] as List? ?? const [])
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+      horizon: HorizonX.fromString(m['horizon'] ?? 'sixMonth'),
+      status: MilestoneStatusX.fromString(m['status'] ?? 'active'),
+      progress: (m['progress'] ?? 0).toDouble(),
+      createdAt: DateTime.tryParse(m['createdAt'] ?? '') ?? DateTime.now(),
       targetDate: DateTime.tryParse(m['targetDate'] ?? '') ?? DateTime.now(),
-      updatedAt:  DateTime.tryParse(m['updatedAt'] ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(m['updatedAt'] ?? '') ?? DateTime.now(),
     );
   }
 
@@ -161,7 +177,7 @@ class Milestone {
 // becomes Feb 28/29 rather than overflowing into March.
 DateTime addMonths(DateTime d, int months) {
   final total = d.month + months;
-  final year  = d.year + ((total - 1) ~/ 12);
+  final year = d.year + ((total - 1) ~/ 12);
   final month = ((total - 1) % 12) + 1;
   final lastDay = DateTime(year, month + 1, 0).day;
   final day = d.day < lastDay ? d.day : lastDay;
