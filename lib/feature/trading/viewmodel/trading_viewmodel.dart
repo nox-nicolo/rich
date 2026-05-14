@@ -54,14 +54,14 @@ class TradingState {
   });
 
   factory TradingState.initial() => TradingState(
-    rules:          defaultTradingRules,
-    todayJournal:   [],
-    biasBoard:      [],
-    targets:        [],
-    growthPlans:    [],
-    sessionActive:  false,
+    rules: defaultTradingRules,
+    todayJournal: [],
+    biasBoard: [],
+    targets: [],
+    growthPlans: [],
+    sessionActive: false,
     currentSession: _detectSession(),
-    isLoading:      false,
+    isLoading: false,
     startingCapital: 0,
   );
 
@@ -74,13 +74,13 @@ class TradingState {
 
   TradingTarget? get activeTarget =>
       targets.where((t) => t.status == TargetStatus.active).isNotEmpty
-          ? targets.firstWhere((t) => t.status == TargetStatus.active)
-          : null;
+      ? targets.firstWhere((t) => t.status == TargetStatus.active)
+      : null;
 
   TradingGrowthPlan? get activeGrowthPlan =>
       growthPlans.where((p) => p.isActive).isNotEmpty
-          ? growthPlans.firstWhere((p) => p.isActive)
-          : null;
+      ? growthPlans.firstWhere((p) => p.isActive)
+      : null;
 
   TradingState copyWith({
     List<TradingRule>? rules,
@@ -102,25 +102,28 @@ class TradingState {
     bool clearAccountError = false,
   }) {
     return TradingState(
-      rules:           rules          ?? this.rules,
-      todayJournal:    todayJournal   ?? this.todayJournal,
-      biasBoard:       biasBoard      ?? this.biasBoard,
-      targets:         targets        ?? this.targets,
-      growthPlans:     growthPlans    ?? this.growthPlans,
-      sessionActive:   sessionActive  ?? this.sessionActive,
-      currentSession:  currentSession ?? this.currentSession,
-      isLoading:       isLoading      ?? this.isLoading,
-      activeTab:       activeTab      ?? this.activeTab,
+      rules: rules ?? this.rules,
+      todayJournal: todayJournal ?? this.todayJournal,
+      biasBoard: biasBoard ?? this.biasBoard,
+      targets: targets ?? this.targets,
+      growthPlans: growthPlans ?? this.growthPlans,
+      sessionActive: sessionActive ?? this.sessionActive,
+      currentSession: currentSession ?? this.currentSession,
+      isLoading: isLoading ?? this.isLoading,
+      activeTab: activeTab ?? this.activeTab,
       startingCapital: startingCapital ?? this.startingCapital,
-      accountConfig:   clearAccountConfig ? null : (accountConfig ?? this.accountConfig),
-      brokerInfo:      brokerInfo     ?? this.brokerInfo,
-      brokerTrades:    brokerTrades   ?? this.brokerTrades,
-      accountSyncing:  accountSyncing ?? this.accountSyncing,
-      accountError:    clearAccountError ? null : (accountError ?? this.accountError),
+      accountConfig: clearAccountConfig
+          ? null
+          : (accountConfig ?? this.accountConfig),
+      brokerInfo: brokerInfo ?? this.brokerInfo,
+      brokerTrades: brokerTrades ?? this.brokerTrades,
+      accountSyncing: accountSyncing ?? this.accountSyncing,
+      accountError: clearAccountError
+          ? null
+          : (accountError ?? this.accountError),
     );
   }
 }
-
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
@@ -134,27 +137,27 @@ class TradingViewModel extends StateNotifier<TradingState> {
   }
 
   void _load() {
-    final journal      = _repo.loadTodayJournal();
-    final biases       = _repo.loadBiasBoard();
-    final targets      = _repo.loadTargets();
-    final session      = _repo.loadSessionActive();
-    final capital      = _repo.loadStartingCapital();
-    final growthPlans  = _repo.loadGrowthPlans();
-    final userRules    = _repo.loadCustomRules();
-    final account      = _repo.loadAccountConfig();
-    final brokerInfo   = _repo.loadBrokerInfo();
+    final journal = _repo.loadTodayJournal();
+    final biases = _repo.loadBiasBoard();
+    final targets = _repo.loadTargets();
+    final session = _repo.loadSessionActive();
+    final capital = _repo.loadStartingCapital();
+    final growthPlans = _repo.loadGrowthPlans();
+    final userRules = _repo.loadCustomRules();
+    final account = _repo.loadAccountConfig();
+    final brokerInfo = _repo.loadBrokerInfo();
     final brokerTrades = _repo.loadBrokerTrades();
     state = state.copyWith(
-      todayJournal:    journal,
-      biasBoard:       biases,
-      targets:         targets,
-      sessionActive:   session,
+      todayJournal: journal,
+      biasBoard: biases,
+      targets: targets,
+      sessionActive: session,
       startingCapital: capital,
-      growthPlans:     growthPlans,
-      rules:           userRules,
-      accountConfig:   account,
-      brokerInfo:      brokerInfo,
-      brokerTrades:    brokerTrades,
+      growthPlans: growthPlans,
+      rules: userRules,
+      accountConfig: account,
+      brokerInfo: brokerInfo,
+      brokerTrades: brokerTrades,
     );
 
     // Always fetch news on load so the NEWS tab has data
@@ -185,9 +188,9 @@ class TradingViewModel extends StateNotifier<TradingState> {
     VibrationService.strongPulse();
     _connectNews();
     NotificationService.instance.show(
-      id:      10,
-      title:   'Trading Session Started',
-      body:    state.activeTarget != null
+      id: 10,
+      title: 'Trading Session Started',
+      body: state.activeTarget != null
           ? 'Target: \$${state.activeTarget!.sessionTarget.toStringAsFixed(2)} this session.'
           : 'Session is live. Follow your rules.',
       channel: NotificationChannel.trading,
@@ -203,9 +206,9 @@ class TradingViewModel extends StateNotifier<TradingState> {
     _newsService?.disconnect();
     VibrationService.strongPulse();
     NotificationService.instance.show(
-      id:      11,
-      title:   'Trading Session Ended',
-      body:    'Log your reflection before closing.',
+      id: 11,
+      title: 'Trading Session Ended',
+      body: 'Log your reflection before closing.',
       channel: NotificationChannel.trading,
       payload: 'trading',
     );
@@ -272,18 +275,18 @@ class TradingViewModel extends StateNotifier<TradingState> {
     String? preNotes,
   }) async {
     final journalEntry = JournalEntry(
-      id:         const Uuid().v4(),
-      type:       JournalEntryType.trade,
-      createdAt:  DateTime.now(),
+      id: const Uuid().v4(),
+      type: JournalEntryType.trade,
+      createdAt: DateTime.now(),
       instrument: instrument,
-      direction:  direction,
-      lotSize:    lotSize,
-      entry:      entry,
-      stopLoss:   stopLoss,
+      direction: direction,
+      lotSize: lotSize,
+      entry: entry,
+      stopLoss: stopLoss,
       takeProfit: takeProfit,
-      setup:      setup,
-      preNotes:   preNotes,
-      outcome:    TradeOutcome.pending,
+      setup: setup,
+      preNotes: preNotes,
+      outcome: TradeOutcome.pending,
     );
     await saveJournalEntry(journalEntry);
   }
@@ -301,19 +304,19 @@ class TradingViewModel extends StateNotifier<TradingState> {
     if (idx < 0) return;
     final current = state.todayJournal[idx];
     final closed = current.copyWith(
-      exit:          exit,
-      outcome:       outcome,
-      pnl:           pnl,
-      postNotes:     postNotes,
+      exit: exit,
+      outcome: outcome,
+      pnl: pnl,
+      postNotes: postNotes,
       lessonLearned: lessonLearned,
     );
     await saveJournalEntry(closed);
 
     await TrackingService.record(TrackingFeature.trading, {
-      'trades':  1,
-      'wins':    outcome == TradeOutcome.win  ? 1 : 0,
-      'losses':  outcome == TradeOutcome.loss ? 1 : 0,
-      'pnl':     pnl,
+      'trades': 1,
+      'wins': outcome == TradeOutcome.win ? 1 : 0,
+      'losses': outcome == TradeOutcome.loss ? 1 : 0,
+      'pnl': pnl,
     });
     VibrationService.strongPulse();
   }
@@ -333,9 +336,9 @@ class TradingViewModel extends StateNotifier<TradingState> {
     bool isNoTradeRule = false,
   }) async {
     final rule = TradingRule(
-      id:           const Uuid().v4(),
-      title:        title,
-      description:  description,
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
       isNoTradeRule: isNoTradeRule,
     );
     final updated = [...state.rules, rule];
@@ -357,12 +360,12 @@ class TradingViewModel extends StateNotifier<TradingState> {
     required String reasoning,
   }) {
     final bias = BiasEntry(
-      id:         const Uuid().v4(),
+      id: const Uuid().v4(),
       instrument: instrument,
-      direction:  direction,
-      reasoning:  reasoning,
-      createdAt:  DateTime.now(),
-      expiresAt:  DateTime.now().add(const Duration(hours: 24)),
+      direction: direction,
+      reasoning: reasoning,
+      createdAt: DateTime.now(),
+      expiresAt: DateTime.now().add(const Duration(hours: 24)),
     );
     final updated = [...state.biasBoard, bias];
     state = state.copyWith(biasBoard: updated);
@@ -396,9 +399,10 @@ class TradingViewModel extends StateNotifier<TradingState> {
     state = state.copyWith(targets: updated);
     if (target.status == TargetStatus.completed) {
       await NotificationService.instance.show(
-        id:      12,
-        title:   'Target Reached!',
-        body:    '${target.title} — \$${target.targetCapital.toStringAsFixed(2)} achieved.',
+        id: 12,
+        title: 'Target Reached!',
+        body:
+            '${target.title} — \$${target.targetCapital.toStringAsFixed(2)} achieved.',
         channel: NotificationChannel.critical,
         payload: 'trading',
       );
@@ -429,31 +433,38 @@ class TradingViewModel extends StateNotifier<TradingState> {
     required double startingCapital,
     required double targetCapital,
     required double dailyGrowthPercent,
-    required int    totalDays,
-    double          stopLossPercent = 2.0,
+    required int totalDays,
+    double stopLossPercent = 2.0,
+    double? startingLotSize,
   }) async {
     // Deactivate existing active plan
-    final deactivated = state.growthPlans.map((p) =>
-      p.isActive ? p.copyWith(isActive: false) : p,
-    ).toList();
-    for (final p in deactivated) { await _repo.saveGrowthPlan(p); }
+    final deactivated = state.growthPlans
+        .map((p) => p.isActive ? p.copyWith(isActive: false) : p)
+        .toList();
+    for (final p in deactivated) {
+      await _repo.saveGrowthPlan(p);
+    }
 
     final plan = TradingGrowthPlan.build(
-      id:                 const Uuid().v4(),
-      name:               name,
-      startingCapital:    startingCapital,
-      targetCapital:      targetCapital,
+      id: const Uuid().v4(),
+      name: name,
+      startingCapital: startingCapital,
+      targetCapital: targetCapital,
       dailyGrowthPercent: dailyGrowthPercent,
-      totalDays:          totalDays,
-      stopLossPercent:    stopLossPercent,
+      totalDays: totalDays,
+      stopLossPercent: stopLossPercent,
+      startingLotSize: startingLotSize,
     );
     await _repo.saveGrowthPlan(plan);
     state = state.copyWith(growthPlans: [plan, ...deactivated]);
   }
 
   Future<void> markGrowthDay(
-    String planId, int day, GrowthDayStatus status, {double? actualEnd}
-  ) async {
+    String planId,
+    int day,
+    GrowthDayStatus status, {
+    double? actualEnd,
+  }) async {
     final updated = state.growthPlans.map((p) {
       if (p.id != planId) return p;
       return p.markDay(day, status, actualEnd: actualEnd);
@@ -464,9 +475,9 @@ class TradingViewModel extends StateNotifier<TradingState> {
 
     if (plan.completedDays >= plan.totalDays) {
       await NotificationService.instance.show(
-        id:      13,
-        title:   'Growth Plan Complete!',
-        body:    '${plan.name} — all ${plan.totalDays} days done.',
+        id: 13,
+        title: 'Growth Plan Complete!',
+        body: '${plan.name} — all ${plan.totalDays} days done.',
         channel: NotificationChannel.critical,
         payload: 'trading',
       );
@@ -542,9 +553,9 @@ class TradingViewModel extends StateNotifier<TradingState> {
 
     final svc = TradingAccountService(cfg);
     try {
-      final infoRes     = await svc.fetchAccountInformation();
-      final openRes     = await svc.fetchOpenPositions();
-      final historyRes  = await svc.fetchHistory();
+      final infoRes = await svc.fetchAccountInformation();
+      final openRes = await svc.fetchOpenPositions();
+      final historyRes = await svc.fetchHistory();
 
       final err = infoRes.error ?? openRes.error ?? historyRes.error;
       if (err != null) {
@@ -565,8 +576,8 @@ class TradingViewModel extends StateNotifier<TradingState> {
 
       state = state.copyWith(
         accountSyncing: false,
-        brokerInfo:     infoRes.data,
-        brokerTrades:   trades,
+        brokerInfo: infoRes.data,
+        brokerTrades: trades,
       );
     } finally {
       svc.dispose();
@@ -597,5 +608,5 @@ final tradingRepositoryProvider = Provider<TradingRepository>(
 
 final tradingViewModelProvider =
     StateNotifierProvider<TradingViewModel, TradingState>((ref) {
-  return TradingViewModel(ref, ref.read(tradingRepositoryProvider));
-});
+      return TradingViewModel(ref, ref.read(tradingRepositoryProvider));
+    });

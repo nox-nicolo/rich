@@ -44,7 +44,7 @@ class FinanceState {
 
   factory FinanceState.initial() {
     final now = DateTime.now();
-    final emptyDay   = DateTime(now.year, now.month, now.day);
+    final emptyDay = DateTime(now.year, now.month, now.day);
     final emptyPeriod = PeriodSummary(
       period: FinancePeriod.daily,
       startDate: emptyDay,
@@ -68,54 +68,56 @@ class FinanceState {
       totalGeneralAvailable: 0,
     );
     return FinanceState(
-      accounts:          const [],
-      allocations:       const [],
-      transactions:      const [],
-      auditTrail:        const [],
-      dashboardSummary:  emptyDash,
-      todaySummary:      emptyPeriod,
-      weekSummary:       emptyPeriod.copyWith(period: FinancePeriod.weekly),
-      monthSummary:      emptyPeriod.copyWith(period: FinancePeriod.monthly),
-      yearSummary:       emptyPeriod.copyWith(period: FinancePeriod.yearly),
+      accounts: const [],
+      allocations: const [],
+      transactions: const [],
+      auditTrail: const [],
+      dashboardSummary: emptyDash,
+      todaySummary: emptyPeriod,
+      weekSummary: emptyPeriod.copyWith(period: FinancePeriod.weekly),
+      monthSummary: emptyPeriod.copyWith(period: FinancePeriod.monthly),
+      yearSummary: emptyPeriod.copyWith(period: FinancePeriod.yearly),
       recentTransactions: const [],
-      selectedPeriod:    FinancePeriod.monthly,
-      isLoading:         true,
+      selectedPeriod: FinancePeriod.monthly,
+      isLoading: true,
     );
   }
 
   FinanceState copyWith({
-    List<FinanceAccount>?       accounts,
-    List<BudgetAllocation>?     allocations,
-    List<FinanceTransaction>?   transactions,
-    List<AuditTrailEntry>?      auditTrail,
-    FinanceDashboardSummary?    dashboardSummary,
-    PeriodSummary?              todaySummary,
-    PeriodSummary?              weekSummary,
-    PeriodSummary?              monthSummary,
-    PeriodSummary?              yearSummary,
-    List<FinanceTransaction>?   recentTransactions,
-    FinancePeriod?              selectedPeriod,
-    FinanceCategory?            selectedCategory,
-    bool?                       isLoading,
-    String?                     errorMessage,
-    bool                        clearError = false,
-    bool                        clearCategory = false,
+    List<FinanceAccount>? accounts,
+    List<BudgetAllocation>? allocations,
+    List<FinanceTransaction>? transactions,
+    List<AuditTrailEntry>? auditTrail,
+    FinanceDashboardSummary? dashboardSummary,
+    PeriodSummary? todaySummary,
+    PeriodSummary? weekSummary,
+    PeriodSummary? monthSummary,
+    PeriodSummary? yearSummary,
+    List<FinanceTransaction>? recentTransactions,
+    FinancePeriod? selectedPeriod,
+    FinanceCategory? selectedCategory,
+    bool? isLoading,
+    String? errorMessage,
+    bool clearError = false,
+    bool clearCategory = false,
   }) {
     return FinanceState(
-      accounts:           accounts          ?? this.accounts,
-      allocations:        allocations       ?? this.allocations,
-      transactions:       transactions      ?? this.transactions,
-      auditTrail:         auditTrail        ?? this.auditTrail,
-      dashboardSummary:   dashboardSummary  ?? this.dashboardSummary,
-      todaySummary:       todaySummary      ?? this.todaySummary,
-      weekSummary:        weekSummary       ?? this.weekSummary,
-      monthSummary:       monthSummary      ?? this.monthSummary,
-      yearSummary:        yearSummary       ?? this.yearSummary,
+      accounts: accounts ?? this.accounts,
+      allocations: allocations ?? this.allocations,
+      transactions: transactions ?? this.transactions,
+      auditTrail: auditTrail ?? this.auditTrail,
+      dashboardSummary: dashboardSummary ?? this.dashboardSummary,
+      todaySummary: todaySummary ?? this.todaySummary,
+      weekSummary: weekSummary ?? this.weekSummary,
+      monthSummary: monthSummary ?? this.monthSummary,
+      yearSummary: yearSummary ?? this.yearSummary,
       recentTransactions: recentTransactions ?? this.recentTransactions,
-      selectedPeriod:     selectedPeriod    ?? this.selectedPeriod,
-      selectedCategory:   clearCategory ? null : (selectedCategory ?? this.selectedCategory),
-      isLoading:          isLoading         ?? this.isLoading,
-      errorMessage:       clearError ? null : (errorMessage ?? this.errorMessage),
+      selectedPeriod: selectedPeriod ?? this.selectedPeriod,
+      selectedCategory: clearCategory
+          ? null
+          : (selectedCategory ?? this.selectedCategory),
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 
@@ -143,19 +145,24 @@ class FinanceState {
     FinanceCategory category,
     FinancePeriod period,
   ) {
-    final items = allocations
-        .where((a) => a.category == category && a.period == period)
-        .toList()
-      ..sort((a, b) => b.startDate.compareTo(a.startDate));
+    final items =
+        allocations
+            .where((a) => a.category == category && a.period == period)
+            .toList()
+          ..sort((a, b) => b.startDate.compareTo(a.startDate));
     return items.isNotEmpty ? items.first : null;
   }
 
   double spentFor(FinanceCategory category, FinancePeriod period) {
     switch (period) {
-      case FinancePeriod.daily:   return todaySummary.spentFor(category);
-      case FinancePeriod.weekly:  return weekSummary.spentFor(category);
-      case FinancePeriod.monthly: return monthSummary.spentFor(category);
-      case FinancePeriod.yearly:  return yearSummary.spentFor(category);
+      case FinancePeriod.daily:
+        return todaySummary.spentFor(category);
+      case FinancePeriod.weekly:
+        return weekSummary.spentFor(category);
+      case FinancePeriod.monthly:
+        return monthSummary.spentFor(category);
+      case FinancePeriod.yearly:
+        return yearSummary.spentFor(category);
     }
   }
 
@@ -175,21 +182,22 @@ class FinanceState {
         spent: spent,
         allocated: alloc.allocatedAmount,
       );
-      checks.add(BudgetCheck(
-        category:     category,
-        period:       period,
-        spent:        spent,
-        allocated:    alloc.allocatedAmount,
-        usagePercent: pct,
-        health:       FinanceReportHelper.healthForUsagePercent(pct),
-      ));
+      checks.add(
+        BudgetCheck(
+          category: category,
+          period: period,
+          spent: spent,
+          allocated: alloc.allocatedAmount,
+          usagePercent: pct,
+          health: FinanceReportHelper.healthForUsagePercent(pct),
+        ),
+      );
     }
     return checks;
   }
 
-  List<BudgetCheck> get allBudgetChecks => FinanceCategory.values
-      .expand(budgetChecksFor)
-      .toList();
+  List<BudgetCheck> get allBudgetChecks =>
+      FinanceCategory.values.expand(budgetChecksFor).toList();
 
   // Worst-wins across all configured periods for this category. Lets the
   // category card show red if daily is over even when monthly is still fine.
@@ -213,7 +221,7 @@ class FinanceState {
     final alloc = latestAllocationFor(category);
     if (alloc == null || alloc.allocatedAmount <= 0) return 0;
     return FinanceReportHelper.usagePercent(
-      spent:     spentFor(category, alloc.period),
+      spent: spentFor(category, alloc.period),
       allocated: alloc.allocatedAmount,
     );
   }
@@ -224,8 +232,8 @@ class FinanceState {
   String budgetInsightFor(FinanceCategory category) {
     final alloc = latestAllocationFor(category);
     return FinanceReportHelper.commentForBudgetUsage(
-      category:  category,
-      spent:     alloc == null ? 0 : spentFor(category, alloc.period),
+      category: category,
+      spent: alloc == null ? 0 : spentFor(category, alloc.period),
       allocated: alloc?.allocatedAmount ?? 0,
     );
   }
@@ -241,31 +249,36 @@ class FinanceState {
       final checks = budgetChecksFor(cat);
 
       if (checks.isEmpty) {
-        results.add(BudgetInsight(
-          id:        '${cat.name}_none',
-          category:  cat,
-          health:    BudgetHealth.healthy,
-          title:     cat.label,
-          message:   'No budget set for ${cat.label}. '
-                     'Add one to get daily/weekly/monthly checks.',
-          createdAt: now,
-        ));
+        results.add(
+          BudgetInsight(
+            id: '${cat.name}_none',
+            category: cat,
+            health: BudgetHealth.healthy,
+            title: cat.label,
+            message:
+                'No budget set for ${cat.label}. '
+                'Add one to get daily/weekly/monthly checks.',
+            createdAt: now,
+          ),
+        );
         continue;
       }
 
       for (final check in checks) {
-        results.add(BudgetInsight(
-          id:        '${cat.name}_${check.period.name}',
-          category:  cat,
-          health:    check.health,
-          title:     '${cat.label} — ${check.period.label}',
-          message:   FinanceReportHelper.commentForBudgetUsage(
-            category:  cat,
-            spent:     check.spent,
-            allocated: check.allocated,
+        results.add(
+          BudgetInsight(
+            id: '${cat.name}_${check.period.name}',
+            category: cat,
+            health: check.health,
+            title: '${cat.label} — ${check.period.label}',
+            message: FinanceReportHelper.commentForBudgetUsage(
+              category: cat,
+              spent: check.spent,
+              allocated: check.allocated,
+            ),
+            createdAt: now,
           ),
-          createdAt: now,
-        ));
+        );
       }
     }
 
@@ -273,7 +286,9 @@ class FinanceState {
   }
 
   FinanceAccount? accountFor(FinanceCategory category) {
-    final list = accounts.where((a) => a.category == category && a.isActive).toList();
+    final list = accounts
+        .where((a) => a.category == category && a.isActive)
+        .toList();
     return list.isNotEmpty ? list.first : null;
   }
 }
@@ -282,16 +297,16 @@ class FinanceState {
 extension PeriodSummaryCopyWith on PeriodSummary {
   PeriodSummary copyWith({FinancePeriod? period}) {
     return PeriodSummary(
-      period:             period           ?? this.period,
-      startDate:          startDate,
-      endDate:            endDate,
-      totalIncome:        totalIncome,
-      totalExpenses:      totalExpenses,
-      totalTransfersIn:   totalTransfersIn,
-      totalTransfersOut:  totalTransfersOut,
-      netCashFlow:        netCashFlow,
-      categorySpend:      categorySpend,
-      categoryIncome:     categoryIncome,
+      period: period ?? this.period,
+      startDate: startDate,
+      endDate: endDate,
+      totalIncome: totalIncome,
+      totalExpenses: totalExpenses,
+      totalTransfersIn: totalTransfersIn,
+      totalTransfersOut: totalTransfersOut,
+      netCashFlow: netCashFlow,
+      categorySpend: categorySpend,
+      categoryIncome: categoryIncome,
     );
   }
 }
@@ -310,29 +325,29 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
   void _load() {
     _bootstrapDefaultAccounts();
 
-    final accounts      = _repo.loadAccounts();
-    final allocations   = _repo.loadAllocations();
-    final transactions  = _repo.loadAllTransactions();
-    final auditTrail    = _repo.loadAuditTrail();
-    final dashboard     = _repo.loadDashboardSummary();
-    final today         = _repo.loadTodaySummary();
-    final week          = _repo.loadThisWeekSummary();
-    final month         = _repo.loadThisMonthSummary();
-    final year          = _repo.loadThisYearSummary();
-    final recent        = _repo.loadRecentTransactions(days: 30);
+    final accounts = _repo.loadAccounts();
+    final allocations = _repo.loadAllocations();
+    final transactions = _repo.loadAllTransactions();
+    final auditTrail = _repo.loadAuditTrail();
+    final dashboard = _repo.loadDashboardSummary();
+    final today = _repo.loadTodaySummary();
+    final week = _repo.loadThisWeekSummary();
+    final month = _repo.loadThisMonthSummary();
+    final year = _repo.loadThisYearSummary();
+    final recent = _repo.loadRecentTransactions(days: 30);
 
     state = state.copyWith(
-      accounts:           accounts,
-      allocations:        allocations,
-      transactions:       transactions,
-      auditTrail:         auditTrail,
-      dashboardSummary:   dashboard,
-      todaySummary:       today,
-      weekSummary:        week,
-      monthSummary:       month,
-      yearSummary:        year,
+      accounts: accounts,
+      allocations: allocations,
+      transactions: transactions,
+      auditTrail: auditTrail,
+      dashboardSummary: dashboard,
+      todaySummary: today,
+      weekSummary: week,
+      monthSummary: month,
+      yearSummary: year,
       recentTransactions: recent,
-      isLoading:          false,
+      isLoading: false,
     );
   }
 
@@ -343,42 +358,42 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     final now = DateTime.now();
     for (final cat in FinanceCategory.values) {
       final account = FinanceAccount(
-        id:              const Uuid().v4(),
-        category:        cat,
-        name:            cat.label,
-        description:     'Default ${cat.label} account',
-        openingBalance:  0,
-        currentBalance:  0,
-        isActive:        true,
-        createdAt:       now,
-        updatedAt:       now,
+        id: const Uuid().v4(),
+        category: cat,
+        name: cat.label,
+        description: 'Default ${cat.label} account',
+        openingBalance: 0,
+        currentBalance: 0,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
       );
       _repo.saveAccount(account);
     }
   }
 
   void _recompute() {
-    final accounts     = _repo.loadAccounts();
-    final allocations  = _repo.loadAllocations();
+    final accounts = _repo.loadAccounts();
+    final allocations = _repo.loadAllocations();
     final transactions = _repo.loadAllTransactions();
-    final auditTrail   = _repo.loadAuditTrail();
-    final dashboard    = _repo.loadDashboardSummary();
-    final today        = _repo.loadTodaySummary();
-    final week         = _repo.loadThisWeekSummary();
-    final month        = _repo.loadThisMonthSummary();
-    final year         = _repo.loadThisYearSummary();
-    final recent       = _repo.loadRecentTransactions(days: 30);
+    final auditTrail = _repo.loadAuditTrail();
+    final dashboard = _repo.loadDashboardSummary();
+    final today = _repo.loadTodaySummary();
+    final week = _repo.loadThisWeekSummary();
+    final month = _repo.loadThisMonthSummary();
+    final year = _repo.loadThisYearSummary();
+    final recent = _repo.loadRecentTransactions(days: 30);
 
     state = state.copyWith(
-      accounts:           accounts,
-      allocations:        allocations,
-      transactions:       transactions,
-      auditTrail:         auditTrail,
-      dashboardSummary:   dashboard,
-      todaySummary:       today,
-      weekSummary:        week,
-      monthSummary:       month,
-      yearSummary:        year,
+      accounts: accounts,
+      allocations: allocations,
+      transactions: transactions,
+      auditTrail: auditTrail,
+      dashboardSummary: dashboard,
+      todaySummary: today,
+      weekSummary: week,
+      monthSummary: month,
+      yearSummary: year,
       recentTransactions: recent,
     );
   }
@@ -411,11 +426,11 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
   // amount exactly.
 
   static const Map<FinanceCategory, double> incomeSplitPercent = {
-    FinanceCategory.general:   0.40,
-    FinanceCategory.saving:    0.20,
+    FinanceCategory.general: 0.40,
+    FinanceCategory.saving: 0.20,
     FinanceCategory.investing: 0.15,
     FinanceCategory.emergency: 0.125,
-    FinanceCategory.travel:    0.125,
+    FinanceCategory.travel: 0.125,
   };
 
   static Map<FinanceCategory, double> computeIncomeSplit(double amount) {
@@ -427,8 +442,9 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
       result[e.key] = portion;
       allocated += portion;
     }
-    result[FinanceCategory.general] =
-        double.parse((amount - allocated).toStringAsFixed(2));
+    result[FinanceCategory.general] = double.parse(
+      (amount - allocated).toStringAsFixed(2),
+    );
     return result;
   }
 
@@ -441,51 +457,53 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     String? vendor,
     String? note,
   }) async {
-    final now    = DateTime.now();
+    final now = DateTime.now();
     final splits = computeIncomeSplit(amount);
-    final refId  = const Uuid().v4();
+    final refId = const Uuid().v4();
 
     for (final entry in splits.entries) {
-      final cat     = entry.key;
+      final cat = entry.key;
       final portion = entry.value;
       if (portion <= 0) continue;
 
       final tx = FinanceTransaction(
-        id:              const Uuid().v4(),
-        title:           title,
-        description:     description,
-        type:            TransactionType.income,
-        category:        cat,
-        amount:          portion,
+        id: const Uuid().v4(),
+        title: title,
+        description: description,
+        type: TransactionType.income,
+        category: cat,
+        amount: portion,
         transactionDate: date,
-        paymentMethod:   paymentMethod,
-        vendor:          vendor,
-        note:            note,
-        referenceId:     refId,
-        createdAt:       now,
-        updatedAt:       now,
+        paymentMethod: paymentMethod,
+        vendor: vendor,
+        note: note,
+        referenceId: refId,
+        createdAt: now,
+        updatedAt: now,
       );
       await _repo.saveTransaction(tx);
 
-      final account = _repo.loadAccountByCategory(cat);
-      if (account != null) {
-        await _repo.saveAccount(account.copyWith(
+      final account = await _accountForCategoryOrCreate(cat, now);
+      await _repo.saveAccount(
+        account.copyWith(
           currentBalance: account.currentBalance + portion,
           updatedAt: now,
-        ));
-      }
+        ),
+      );
     }
 
+    await _syncBudgetAllocationsFromBalances(now);
+
     await _saveAudit(
-      entityId:   refId,
+      entityId: refId,
       entityType: 'FinanceTransaction',
-      action:     AuditAction.created,
-      fieldName:  'income_split',
-      newValue:   '+${amount.toStringAsFixed(2)} split 40/20/15/12.5/12.5',
+      action: AuditAction.created,
+      fieldName: 'income_split',
+      newValue: '+${amount.toStringAsFixed(2)} split 40/20/15/12.5/12.5',
     );
 
     await TrackingService.record(TrackingFeature.finance, {
-      'logs':   1,
+      'logs': 1,
       'income': amount,
     });
 
@@ -503,42 +521,42 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     String? note,
   }) async {
     final now = DateTime.now();
-    final tx  = FinanceTransaction(
-      id:              const Uuid().v4(),
-      title:           title,
-      description:     description,
-      type:            TransactionType.income,
-      category:        category,
-      amount:          amount,
+    final tx = FinanceTransaction(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      type: TransactionType.income,
+      category: category,
+      amount: amount,
       transactionDate: date,
-      paymentMethod:   paymentMethod,
-      vendor:          vendor,
-      note:            note,
-      createdAt:       now,
-      updatedAt:       now,
+      paymentMethod: paymentMethod,
+      vendor: vendor,
+      note: note,
+      createdAt: now,
+      updatedAt: now,
     );
     await _repo.saveTransaction(tx);
 
     // Update account balance
-    final account = _repo.loadAccountByCategory(category);
-    if (account != null) {
-      final updated = account.copyWith(
-        currentBalance: account.currentBalance + amount,
-        updatedAt: now,
-      );
-      await _repo.saveAccount(updated);
-    }
+    final account = await _accountForCategoryOrCreate(category, now);
+    final updated = account.copyWith(
+      currentBalance: account.currentBalance + amount,
+      updatedAt: now,
+    );
+    await _repo.saveAccount(updated);
+
+    await _syncBudgetAllocationsFromBalances(now);
 
     await _saveAudit(
-      entityId:   tx.id,
+      entityId: tx.id,
       entityType: 'FinanceTransaction',
-      action:     AuditAction.created,
-      fieldName:  'income',
-      newValue:   '${category.label}: +${amount.toStringAsFixed(2)}',
+      action: AuditAction.created,
+      fieldName: 'income',
+      newValue: '${category.label}: +${amount.toStringAsFixed(2)}',
     );
 
     await TrackingService.record(TrackingFeature.finance, {
-      'logs':   1,
+      'logs': 1,
       'income': amount,
     });
 
@@ -558,19 +576,19 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     String? note,
   }) async {
     final now = DateTime.now();
-    final tx  = FinanceTransaction(
-      id:              const Uuid().v4(),
-      title:           title,
-      description:     description,
-      type:            TransactionType.expense,
-      category:        category,
-      amount:          amount,
+    final tx = FinanceTransaction(
+      id: const Uuid().v4(),
+      title: title,
+      description: description,
+      type: TransactionType.expense,
+      category: category,
+      amount: amount,
       transactionDate: date,
-      paymentMethod:   paymentMethod,
-      vendor:          vendor,
-      note:            note,
-      createdAt:       now,
-      updatedAt:       now,
+      paymentMethod: paymentMethod,
+      vendor: vendor,
+      note: note,
+      createdAt: now,
+      updatedAt: now,
     );
     await _repo.saveTransaction(tx);
 
@@ -585,15 +603,15 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     }
 
     await _saveAudit(
-      entityId:   tx.id,
+      entityId: tx.id,
       entityType: 'FinanceTransaction',
-      action:     AuditAction.created,
-      fieldName:  'expense',
-      newValue:   '${category.label}: -${amount.toStringAsFixed(2)}',
+      action: AuditAction.created,
+      fieldName: 'expense',
+      newValue: '${category.label}: -${amount.toStringAsFixed(2)}',
     );
 
     await TrackingService.record(TrackingFeature.finance, {
-      'logs':    1,
+      'logs': 1,
       'expense': amount,
     });
 
@@ -614,36 +632,36 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
 
     // Transfer-Out from source
     final txOut = FinanceTransaction(
-      id:                   const Uuid().v4(),
-      title:                'Transfer to ${toCategory.label}',
-      description:          'Transfer from ${fromCategory.label} to ${toCategory.label}',
-      type:                 TransactionType.transferOut,
-      category:             fromCategory,
-      amount:               amount,
-      transactionDate:      date,
-      referenceId:          refId,
-      sourceAccountId:      _repo.loadAccountByCategory(fromCategory)?.id,
+      id: const Uuid().v4(),
+      title: 'Transfer to ${toCategory.label}',
+      description: 'Transfer from ${fromCategory.label} to ${toCategory.label}',
+      type: TransactionType.transferOut,
+      category: fromCategory,
+      amount: amount,
+      transactionDate: date,
+      referenceId: refId,
+      sourceAccountId: _repo.loadAccountByCategory(fromCategory)?.id,
       destinationAccountId: _repo.loadAccountByCategory(toCategory)?.id,
-      note:                 note,
-      createdAt:            now,
-      updatedAt:            now,
+      note: note,
+      createdAt: now,
+      updatedAt: now,
     );
 
     // Transfer-In to destination
     final txIn = FinanceTransaction(
-      id:                   const Uuid().v4(),
-      title:                'Transfer from ${fromCategory.label}',
-      description:          'Transfer from ${fromCategory.label} to ${toCategory.label}',
-      type:                 TransactionType.transferIn,
-      category:             toCategory,
-      amount:               amount,
-      transactionDate:      date,
-      referenceId:          refId,
-      sourceAccountId:      _repo.loadAccountByCategory(fromCategory)?.id,
+      id: const Uuid().v4(),
+      title: 'Transfer from ${fromCategory.label}',
+      description: 'Transfer from ${fromCategory.label} to ${toCategory.label}',
+      type: TransactionType.transferIn,
+      category: toCategory,
+      amount: amount,
+      transactionDate: date,
+      referenceId: refId,
+      sourceAccountId: _repo.loadAccountByCategory(fromCategory)?.id,
       destinationAccountId: _repo.loadAccountByCategory(toCategory)?.id,
-      note:                 note,
-      createdAt:            now,
-      updatedAt:            now,
+      note: note,
+      createdAt: now,
+      updatedAt: now,
     );
 
     await _repo.saveTransaction(txOut);
@@ -652,27 +670,32 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     // Update source account
     final srcAccount = _repo.loadAccountByCategory(fromCategory);
     if (srcAccount != null) {
-      await _repo.saveAccount(srcAccount.copyWith(
-        currentBalance: srcAccount.currentBalance - amount,
-        updatedAt: now,
-      ));
+      await _repo.saveAccount(
+        srcAccount.copyWith(
+          currentBalance: srcAccount.currentBalance - amount,
+          updatedAt: now,
+        ),
+      );
     }
 
     // Update destination account
     final dstAccount = _repo.loadAccountByCategory(toCategory);
     if (dstAccount != null) {
-      await _repo.saveAccount(dstAccount.copyWith(
-        currentBalance: dstAccount.currentBalance + amount,
-        updatedAt: now,
-      ));
+      await _repo.saveAccount(
+        dstAccount.copyWith(
+          currentBalance: dstAccount.currentBalance + amount,
+          updatedAt: now,
+        ),
+      );
     }
 
     await _saveAudit(
-      entityId:   refId,
+      entityId: refId,
       entityType: 'Transfer',
-      action:     AuditAction.created,
-      fieldName:  'transfer',
-      newValue:   '${fromCategory.label} → ${toCategory.label}: ${amount.toStringAsFixed(2)}',
+      action: AuditAction.created,
+      fieldName: 'transfer',
+      newValue:
+          '${fromCategory.label} → ${toCategory.label}: ${amount.toStringAsFixed(2)}',
     );
 
     _recompute();
@@ -683,11 +706,11 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
   Future<void> saveAccount(FinanceAccount account) async {
     await _repo.saveAccount(account);
     await _saveAudit(
-      entityId:   account.id,
+      entityId: account.id,
       entityType: 'FinanceAccount',
-      action:     AuditAction.updated,
-      fieldName:  'account',
-      newValue:   account.name,
+      action: AuditAction.updated,
+      fieldName: 'account',
+      newValue: account.name,
     );
     _recompute();
   }
@@ -697,11 +720,12 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
   Future<void> saveAllocation(BudgetAllocation allocation) async {
     await _repo.saveAllocation(allocation);
     await _saveAudit(
-      entityId:   allocation.id,
+      entityId: allocation.id,
       entityType: 'BudgetAllocation',
-      action:     AuditAction.created,
-      fieldName:  'allocation',
-      newValue:   '${allocation.category.label}/${allocation.period.label}: ${allocation.allocatedAmount.toStringAsFixed(2)}',
+      action: AuditAction.created,
+      fieldName: 'allocation',
+      newValue:
+          '${allocation.category.label}/${allocation.period.label}: ${allocation.allocatedAmount.toStringAsFixed(2)}',
     );
     _recompute();
   }
@@ -709,11 +733,11 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
   Future<void> deleteAllocation(String id) async {
     await _repo.deleteAllocation(id);
     await _saveAudit(
-      entityId:   id,
+      entityId: id,
       entityType: 'BudgetAllocation',
-      action:     AuditAction.deleted,
-      fieldName:  'allocation',
-      oldValue:   id,
+      action: AuditAction.deleted,
+      fieldName: 'allocation',
+      oldValue: id,
     );
     _recompute();
   }
@@ -731,79 +755,97 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     final origAccount = _repo.loadAccountByCategory(original.category);
     if (origAccount != null) {
       double reversalDelta = 0;
-      if (original.type == TransactionType.income || original.type == TransactionType.transferIn) {
+      if (original.type == TransactionType.income ||
+          original.type == TransactionType.transferIn) {
         reversalDelta -= original.amount;
-      } else if (original.type == TransactionType.expense || original.type == TransactionType.transferOut) {
+      } else if (original.type == TransactionType.expense ||
+          original.type == TransactionType.transferOut) {
         reversalDelta += original.amount;
       }
 
       // Apply new transaction effect
       double newDelta = 0;
-      if (updated.type == TransactionType.income || updated.type == TransactionType.transferIn) {
+      if (updated.type == TransactionType.income ||
+          updated.type == TransactionType.transferIn) {
         newDelta += updated.amount;
-      } else if (updated.type == TransactionType.expense || updated.type == TransactionType.transferOut) {
+      } else if (updated.type == TransactionType.expense ||
+          updated.type == TransactionType.transferOut) {
         newDelta -= updated.amount;
       }
 
       if (original.category == updated.category) {
-        await _repo.saveAccount(origAccount.copyWith(
-          currentBalance: origAccount.currentBalance + reversalDelta + newDelta,
-          updatedAt: DateTime.now(),
-        ));
+        await _repo.saveAccount(
+          origAccount.copyWith(
+            currentBalance:
+                origAccount.currentBalance + reversalDelta + newDelta,
+            updatedAt: DateTime.now(),
+          ),
+        );
       } else {
         // Category changed — update both accounts
-        await _repo.saveAccount(origAccount.copyWith(
-          currentBalance: origAccount.currentBalance + reversalDelta,
-          updatedAt: DateTime.now(),
-        ));
+        await _repo.saveAccount(
+          origAccount.copyWith(
+            currentBalance: origAccount.currentBalance + reversalDelta,
+            updatedAt: DateTime.now(),
+          ),
+        );
         final newAccount = _repo.loadAccountByCategory(updated.category);
         if (newAccount != null) {
-          await _repo.saveAccount(newAccount.copyWith(
-            currentBalance: newAccount.currentBalance + newDelta,
-            updatedAt: DateTime.now(),
-          ));
+          await _repo.saveAccount(
+            newAccount.copyWith(
+              currentBalance: newAccount.currentBalance + newDelta,
+              updatedAt: DateTime.now(),
+            ),
+          );
         }
       }
     }
 
     await _saveAudit(
-      entityId:   updated.id,
+      entityId: updated.id,
       entityType: 'FinanceTransaction',
-      action:     AuditAction.updated,
-      fieldName:  'amount',
-      oldValue:   original.amount.toStringAsFixed(2),
-      newValue:   updated.amount.toStringAsFixed(2),
-      reason:     reason,
+      action: AuditAction.updated,
+      fieldName: 'amount',
+      oldValue: original.amount.toStringAsFixed(2),
+      newValue: updated.amount.toStringAsFixed(2),
+      reason: reason,
     );
 
     _recompute();
   }
 
-  Future<void> deleteTransaction(FinanceTransaction tx, {String? reason}) async {
+  Future<void> deleteTransaction(
+    FinanceTransaction tx, {
+    String? reason,
+  }) async {
     await _repo.deleteTransaction(tx.id);
 
     // Reverse the effect on account balance
     final account = _repo.loadAccountByCategory(tx.category);
     if (account != null) {
       double delta = 0;
-      if (tx.type == TransactionType.income || tx.type == TransactionType.transferIn) {
+      if (tx.type == TransactionType.income ||
+          tx.type == TransactionType.transferIn) {
         delta = -tx.amount;
-      } else if (tx.type == TransactionType.expense || tx.type == TransactionType.transferOut) {
+      } else if (tx.type == TransactionType.expense ||
+          tx.type == TransactionType.transferOut) {
         delta = tx.amount;
       }
-      await _repo.saveAccount(account.copyWith(
-        currentBalance: account.currentBalance + delta,
-        updatedAt: DateTime.now(),
-      ));
+      await _repo.saveAccount(
+        account.copyWith(
+          currentBalance: account.currentBalance + delta,
+          updatedAt: DateTime.now(),
+        ),
+      );
     }
 
     await _saveAudit(
-      entityId:   tx.id,
+      entityId: tx.id,
       entityType: 'FinanceTransaction',
-      action:     AuditAction.deleted,
-      fieldName:  'transaction',
-      oldValue:   '${tx.title}: ${tx.amount.toStringAsFixed(2)}',
-      reason:     reason,
+      action: AuditAction.deleted,
+      fieldName: 'transaction',
+      oldValue: '${tx.title}: ${tx.amount.toStringAsFixed(2)}',
+      reason: reason,
     );
 
     _recompute();
@@ -821,17 +863,134 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     String? reason,
   }) async {
     final entry = AuditTrailEntry(
-      id:         const Uuid().v4(),
-      entityId:   entityId,
+      id: const Uuid().v4(),
+      entityId: entityId,
       entityType: entityType,
-      action:     action,
-      fieldName:  fieldName,
-      oldValue:   oldValue,
-      newValue:   newValue,
-      timestamp:  DateTime.now(),
-      reason:     reason,
+      action: action,
+      fieldName: fieldName,
+      oldValue: oldValue,
+      newValue: newValue,
+      timestamp: DateTime.now(),
+      reason: reason,
     );
     await _repo.saveAuditEntry(entry);
+  }
+
+  Future<FinanceAccount> _accountForCategoryOrCreate(
+    FinanceCategory category,
+    DateTime now,
+  ) async {
+    final existing = _repo.loadAccountByCategory(category);
+    if (existing != null) return existing;
+
+    final account = FinanceAccount(
+      id: const Uuid().v4(),
+      category: category,
+      name: category.label,
+      description: 'Default ${category.label} account',
+      openingBalance: 0,
+      currentBalance: 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    );
+    await _repo.saveAccount(account);
+    return account;
+  }
+
+  Future<void> _syncBudgetAllocationsFromBalances(DateTime now) async {
+    final accounts = _repo.loadActiveAccounts();
+    for (final account in accounts) {
+      if (account.currentBalance <= 0) continue;
+      final amounts = _budgetAmountsFromMonthly(account.currentBalance);
+      for (final entry in amounts.entries) {
+        final existing = _latestAllocationForCurrentPeriod(
+          account.category,
+          entry.key,
+          now,
+        );
+        await _repo.saveAllocation(
+          BudgetAllocation(
+            id: existing?.id ?? const Uuid().v4(),
+            category: account.category,
+            period: entry.key,
+            startDate: _periodStart(entry.key, now),
+            endDate: _periodEnd(entry.key, now),
+            allocatedAmount: entry.value,
+            note: existing?.note,
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now,
+          ),
+        );
+      }
+    }
+  }
+
+  BudgetAllocation? _latestAllocationForCurrentPeriod(
+    FinanceCategory category,
+    FinancePeriod period,
+    DateTime now,
+  ) {
+    final start = _periodStart(period, now);
+    final items =
+        _repo
+            .loadAllocations()
+            .where(
+              (a) =>
+                  a.category == category &&
+                  a.period == period &&
+                  a.startDate.year == start.year &&
+                  a.startDate.month == start.month &&
+                  a.startDate.day == start.day,
+            )
+            .toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return items.isNotEmpty ? items.first : null;
+  }
+
+  Map<FinancePeriod, double> _budgetAmountsFromMonthly(double monthlyAmount) {
+    return {
+      FinancePeriod.daily: double.parse(
+        (monthlyAmount / 30).toStringAsFixed(2),
+      ),
+      FinancePeriod.weekly: double.parse(
+        (monthlyAmount * 7 / 30).toStringAsFixed(2),
+      ),
+      FinancePeriod.monthly: double.parse(monthlyAmount.toStringAsFixed(2)),
+    };
+  }
+
+  DateTime _periodStart(FinancePeriod period, DateTime now) {
+    switch (period) {
+      case FinancePeriod.daily:
+        return DateTime(now.year, now.month, now.day);
+      case FinancePeriod.weekly:
+        return DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(Duration(days: now.weekday - 1));
+      case FinancePeriod.monthly:
+        return DateTime(now.year, now.month, 1);
+      case FinancePeriod.yearly:
+        return DateTime(now.year, 1, 1);
+    }
+  }
+
+  DateTime _periodEnd(FinancePeriod period, DateTime now) {
+    switch (period) {
+      case FinancePeriod.daily:
+        return DateTime(now.year, now.month, now.day, 23, 59, 59);
+      case FinancePeriod.weekly:
+        return _periodStart(
+          period,
+          now,
+        ).add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+      case FinancePeriod.monthly:
+        return DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+      case FinancePeriod.yearly:
+        return DateTime(now.year, 12, 31, 23, 59, 59);
+    }
   }
 
   // ── Statement Builders ────────────────────────────────────────────────────
@@ -859,5 +1018,5 @@ final financeRepositoryProvider = Provider<FinanceRepository>(
 
 final financeViewModelProvider =
     StateNotifierProvider<FinanceViewModel, FinanceState>(
-  (ref) => FinanceViewModel(ref.read(financeRepositoryProvider)),
-);
+      (ref) => FinanceViewModel(ref.read(financeRepositoryProvider)),
+    );

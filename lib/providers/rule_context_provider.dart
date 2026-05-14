@@ -15,6 +15,8 @@ class RuleContextNotifier extends StateNotifier<RuleContext> {
   RuleContextNotifier(RulesRepository repo) : super(RuleContext.initial()) {
     // Load persisted meditation status so trading unlocks on cold start
     final meditationDone = repo.loadMeditationCompletedToday();
+    final lockedFeatures = repo.loadLockedFeatures();
+    state = state.copyWith(lockedFeatures: lockedFeatures);
     if (meditationDone) {
       state = state.copyWith(meditationCompletedToday: true);
     }
@@ -31,7 +33,7 @@ class RuleContextNotifier extends StateNotifier<RuleContext> {
   void completeMeditation() {
     // Gate-driven unlock: trading & betting open the moment meditation completes.
     final unlocked = state.lockedFeatures
-        .where((f) => f != RichFeature.trading && f != RichFeature.betting)
+        .where((f) => f != RichFeature.trading)
         .toSet();
     state = state.copyWith(
       meditationCompletedToday: true,
@@ -60,8 +62,7 @@ class RuleContextNotifier extends StateNotifier<RuleContext> {
   }
 
   void incrementConsecutiveLosses() {
-    state = state.copyWith(
-        consecutiveLosses: state.consecutiveLosses + 1);
+    state = state.copyWith(consecutiveLosses: state.consecutiveLosses + 1);
   }
 
   void resetConsecutiveLosses() {
@@ -93,9 +94,7 @@ class RuleContextNotifier extends StateNotifier<RuleContext> {
   // ── Locks ─────────────────────────────────────────────────────────────────
 
   void lockFeature(RichFeature feature) {
-    state = state.copyWith(
-      lockedFeatures: {...state.lockedFeatures, feature},
-    );
+    state = state.copyWith(lockedFeatures: {...state.lockedFeatures, feature});
   }
 
   void unlockFeature(RichFeature feature) {
@@ -137,5 +136,5 @@ final _rulesRepositoryProvider = Provider<RulesRepository>(
 
 final ruleContextProvider =
     StateNotifierProvider<RuleContextNotifier, RuleContext>(
-  (ref) => RuleContextNotifier(ref.read(_rulesRepositoryProvider)),
-);
+      (ref) => RuleContextNotifier(ref.read(_rulesRepositoryProvider)),
+    );

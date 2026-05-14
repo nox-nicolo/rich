@@ -28,6 +28,27 @@ class AiLessonService {
 
   String? lastError;
 
+  Future<String?> generateText({
+    required String prompt,
+    String systemPrompt =
+        'You are a concise, practical assistant. Return plain markdown only.',
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
+    try {
+      lastError = null;
+      final response = await _getText(
+        prompt,
+        systemPrompt: systemPrompt,
+      ).timeout(timeout);
+      return _cleanText(response);
+    } catch (e) {
+      lastError = e.toString();
+      // ignore: avoid_print
+      print('[AiLessonService] text error: $e');
+      return null;
+    }
+  }
+
   // ── Generate a full language lesson ──────────────────────────────────────
 
   /// Returns a structured lesson string for [topicTitle] in [languageName].
@@ -204,12 +225,19 @@ Keep the response under 180 words.
     };
   }
 
-  Future<String> _getText(String prompt) async {
+  Future<String> _getText(
+    String prompt, {
+    String systemPrompt =
+        'You are a concise, practical language tutor. Return plain markdown only.',
+  }) async {
     Object? lastError;
 
     if (_apiKey.trim().isNotEmpty) {
       try {
-        final text = await _postChatCompletion(prompt);
+        final text = await _postChatCompletion(
+          prompt,
+          systemPrompt: systemPrompt,
+        );
         if (text.trim().isNotEmpty) return text;
         lastError = 'Pollinations chat completion returned an empty response';
       } catch (e) {
@@ -244,7 +272,10 @@ Keep the response under 180 words.
     throw Exception(lastError ?? 'No AI text route responded');
   }
 
-  Future<String> _postChatCompletion(String prompt) async {
+  Future<String> _postChatCompletion(
+    String prompt, {
+    required String systemPrompt,
+  }) async {
     final response = await http.post(
       Uri.parse('$_unifiedBaseUrl/v1/chat/completions'),
       headers: {
@@ -255,11 +286,7 @@ Keep the response under 180 words.
         'model': 'openai',
         'private': true,
         'messages': [
-          {
-            'role': 'system',
-            'content':
-                'You are a concise, practical language tutor. Return plain markdown only.',
-          },
+          {'role': 'system', 'content': systemPrompt},
           {'role': 'user', 'content': prompt},
         ],
       }),

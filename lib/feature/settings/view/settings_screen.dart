@@ -20,7 +20,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-
   @override
   Widget build(BuildContext context) {
     final lockState = ref.watch(appLockViewModelProvider);
@@ -30,8 +29,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.background,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              size: AppSpacing.iconSm, color: AppColors.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: AppSpacing.iconSm,
+            color: AppColors.textPrimary,
+          ),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -46,7 +48,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
-
           /// ── CAPITAL ─────────────────────────────
           _SectionHeader(label: 'CAPITAL'),
           const SizedBox(height: AppSpacing.sm),
@@ -108,7 +109,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle: 'Use fingerprint',
             value: lockState.settings.biometricsEnabled,
             onChanged: (value) async {
-              await ref.read(appLockViewModelProvider.notifier)
+              await ref
+                  .read(appLockViewModelProvider.notifier)
                   .setBiometricsEnabled(value);
             },
           ),
@@ -170,7 +172,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       backgroundColor: AppColors.surface,
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
-          20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20,
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -183,9 +188,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               keyboardType: TextInputType.number,
               obscureText: true,
               maxLength: 6,
-              decoration: const InputDecoration(
-                hintText: 'Enter PIN',
-              ),
+              decoration: const InputDecoration(hintText: 'Enter PIN'),
             ),
 
             const SizedBox(height: 16),
@@ -195,7 +198,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 final pin = ctrl.text.trim();
                 if (pin.length < 4) return;
 
-                await ref.read(appLockViewModelProvider.notifier)
+                await ref
+                    .read(appLockViewModelProvider.notifier)
                     .enableLockWithPin(pin: pin);
 
                 if (ctx.mounted) Navigator.pop(ctx);
@@ -217,18 +221,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       builder: (_) => Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ListTile(title: const Text('Immediately'), onTap: () {
-            vm.setAutoLockMinutes(0);
-            Navigator.pop(context);
-          }),
-          ListTile(title: const Text('1 minute'), onTap: () {
-            vm.setAutoLockMinutes(1);
-            Navigator.pop(context);
-          }),
-          ListTile(title: const Text('5 minutes'), onTap: () {
-            vm.setAutoLockMinutes(5);
-            Navigator.pop(context);
-          }),
+          ListTile(
+            title: const Text('Immediately'),
+            onTap: () {
+              vm.setAutoLockMinutes(0);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            title: const Text('1 minute'),
+            onTap: () {
+              vm.setAutoLockMinutes(1);
+              Navigator.pop(context);
+            },
+          ),
+          ListTile(
+            title: const Text('5 minutes'),
+            onTap: () {
+              vm.setAutoLockMinutes(5);
+              Navigator.pop(context);
+            },
+          ),
         ],
       ),
     );
@@ -244,7 +257,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       backgroundColor: AppColors.surface,
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
-          20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20,
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -268,11 +284,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
             ElevatedButton(
               onPressed: () async {
-                await ref.read(appLockViewModelProvider.notifier)
+                await ref
+                    .read(appLockViewModelProvider.notifier)
                     .changePin(
-                  oldPin: oldCtrl.text.trim(),
-                  newPin: newCtrl.text.trim(),
-                );
+                      oldPin: oldCtrl.text.trim(),
+                      newPin: newCtrl.text.trim(),
+                    );
 
                 if (ctx.mounted) Navigator.pop(ctx);
               },
@@ -299,8 +316,10 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(label,
-        style: AppTypography.chip.copyWith(color: AppColors.textMuted));
+    return Text(
+      label,
+      style: AppTypography.chip.copyWith(color: AppColors.textMuted),
+    );
   }
 }
 
@@ -336,9 +355,12 @@ class _SettingTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: AppTypography.body
-                          .copyWith(color: AppColors.textPrimary)),
+                  Text(
+                    title,
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(subtitle, style: AppTypography.caption),
                 ],
@@ -385,9 +407,12 @@ class _SwitchTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: AppTypography.body
-                        .copyWith(color: AppColors.textPrimary)),
+                Text(
+                  title,
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                ),
                 Text(subtitle, style: AppTypography.caption),
               ],
             ),

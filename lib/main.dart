@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tzl;
 import 'core/services/hive_service.dart';
+import 'core/services/accountability_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/rich_widget_service.dart';
 import 'core/services/daily_reset_service.dart';
@@ -53,6 +54,7 @@ void main() async {
   // all reset to zero before any provider builds and reads stale values.
   await DailyResetService.runIfNewDay();
   await NotificationService.instance.init(navigatorKey: navigatorKey);
+  await AccountabilityService.runDueChecks();
 
   runApp(const ProviderScope(child: RichApp()));
 
@@ -61,6 +63,10 @@ void main() async {
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     try {
       await _scheduleDailyReminders();
+    } catch (_) {}
+    try {
+      await AccountabilityService.scheduleNotifications();
+      await AccountabilityService.runDueChecks();
     } catch (_) {}
     try {
       await TrackingSalvage.runIfNeeded();
@@ -269,6 +275,20 @@ Future<void> _scheduleDailyReminders() async {
     55,
     'Sleep — 23:00',
     'Close everything. Rest is part of the system. You start again at 03:00.',
+  );
+
+  // Sunday 07:00 — AI Mentor strategy session
+  var sunday = DateTime(now.year, now.month, now.day, 7);
+  while (sunday.weekday != DateTime.sunday || sunday.isBefore(now)) {
+    sunday = sunday.add(const Duration(days: 1));
+  }
+  await svc.schedule(
+    id: 18,
+    title: 'AI Mentor Strategy Session',
+    body: 'Open the mentor. Last week gets reviewed, next week gets planned.',
+    scheduledTime: sunday,
+    channel: NotificationChannel.critical,
+    payload: 'mentor',
   );
 }
 

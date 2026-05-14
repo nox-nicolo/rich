@@ -20,20 +20,32 @@ import 'widget/account_widget.dart';
 class TradingScreen extends ConsumerWidget {
   const TradingScreen({super.key});
 
-  static const _tabs = ['NEWS', 'PLAN', 'RULES', 'JOURNAL', 'BIAS', 'TARGETS', 'ACCOUNT'];
+  static const _tabs = [
+    'NEWS',
+    'PLAN',
+    'RULES',
+    'JOURNAL',
+    'BIAS',
+    'TARGETS',
+    'ACCOUNT',
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state   = ref.watch(tradingViewModelProvider);
-    final vm      = ref.read(tradingViewModelProvider.notifier);
+    final state = ref.watch(tradingViewModelProvider);
+    final vm = ref.read(tradingViewModelProvider.notifier);
     final newsList = ref.watch(newsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('TRADING', style: AppTypography.label.copyWith(
-          color: AppColors.textPrimary, letterSpacing: 3,
-        )),
+        title: Text(
+          'TRADING',
+          style: AppTypography.label.copyWith(
+            color: AppColors.textPrimary,
+            letterSpacing: 3,
+          ),
+        ),
         centerTitle: false,
         actions: [
           _SessionToggleButton(
@@ -45,16 +57,15 @@ class TradingScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-
           // ── Session Status Bar ──────────────────────────────────────────
           _SessionStatusBar(
-            active:  state.sessionActive,
+            active: state.sessionActive,
             session: state.currentSession,
           ),
 
           // ── Tab Bar ─────────────────────────────────────────────────────
           _RichTabBar(
-            tabs:     _tabs,
+            tabs: _tabs,
             selected: state.activeTab ?? 'NEWS',
             onSelect: vm.setTab,
           ),
@@ -63,11 +74,11 @@ class TradingScreen extends ConsumerWidget {
           Expanded(
             child: _tabContent(
               context: context,
-              ref:     ref,
-              tab:     state.activeTab ?? 'NEWS',
-              state:   state,
-              vm:      vm,
-              news:    newsList,
+              ref: ref,
+              tab: state.activeTab ?? 'NEWS',
+              state: state,
+              vm: vm,
+              news: newsList,
             ),
           ),
         ],
@@ -97,17 +108,9 @@ class TradingScreen extends ConsumerWidget {
       case 'JOURNAL':
         return const JournalTab();
       case 'BIAS':
-        return _BiasTab(
-          biases: state.biasBoard,
-          vm: vm,
-          context: context,
-        );
+        return _BiasTab(biases: state.biasBoard, vm: vm, context: context);
       case 'TARGETS':
-        return _TargetsTab(
-          targets: state.targets,
-          vm:      vm,
-          context: context,
-        );
+        return _TargetsTab(targets: state.targets, vm: vm, context: context);
       case 'ACCOUNT':
         return const AccountTab();
       default:
@@ -115,7 +118,6 @@ class TradingScreen extends ConsumerWidget {
     }
   }
 }
-
 
 // ── Session Toggle Button ─────────────────────────────────────────────────────
 
@@ -154,7 +156,6 @@ class _SessionToggleButton extends StatelessWidget {
   }
 }
 
-
 // ── Session Status Bar ────────────────────────────────────────────────────────
 
 class _SessionStatusBar extends StatelessWidget {
@@ -169,32 +170,38 @@ class _SessionStatusBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.divider, width: 0.5),
+        ),
       ),
       child: Row(
         children: [
           // Active sessions
           ...TradingSession.values
               .where((s) => s != TradingSession.other)
-              .map((s) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _SessionPill(session: s, active: s.isActive),
-                  )),
+              .map(
+                (s) => Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: _SessionPill(session: s, active: s.isActive),
+                ),
+              ),
           const Spacer(),
           if (active)
             Row(
               children: [
                 Container(
-                  width: 6, height: 6,
+                  width: 6,
+                  height: 6,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     color: AppColors.success,
                   ),
                 ),
                 const SizedBox(width: 6),
-                Text('LIVE', style: AppTypography.chip.copyWith(
-                  color: AppColors.success,
-                )),
+                Text(
+                  'LIVE',
+                  style: AppTypography.chip.copyWith(color: AppColors.success),
+                ),
               ],
             ),
         ],
@@ -214,7 +221,9 @@ class _SessionPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: active ? AppColors.success.withValues(alpha: 0.1) : Colors.transparent,
+        color: active
+            ? AppColors.success.withValues(alpha: 0.1)
+            : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: active
@@ -232,7 +241,6 @@ class _SessionPill extends StatelessWidget {
     );
   }
 }
-
 
 // ── Tab Bar ───────────────────────────────────────────────────────────────────
 
@@ -252,7 +260,9 @@ class _RichTabBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
+        border: Border(
+          bottom: BorderSide(color: AppColors.divider, width: 0.5),
+        ),
       ),
       child: Row(
         children: tabs.map((tab) {
@@ -289,7 +299,6 @@ class _RichTabBar extends StatelessWidget {
   }
 }
 
-
 // ── News Feed Tab ─────────────────────────────────────────────────────────────
 
 class _NewsFeedTab extends ConsumerWidget {
@@ -318,13 +327,15 @@ class _NewsFeedTab extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.rss_feed_outlined,
-                        color: AppColors.textMuted, size: 32),
+                    const Icon(
+                      Icons.rss_feed_outlined,
+                      color: AppColors.textMuted,
+                      size: 32,
+                    ),
                     const SizedBox(height: 12),
                     Text('No news yet', style: AppTypography.body),
                     const SizedBox(height: 4),
-                    Text('Pull down to refresh',
-                        style: AppTypography.caption),
+                    Text('Pull down to refresh', style: AppTypography.caption),
                   ],
                 ),
               ),
@@ -370,39 +381,51 @@ class _NewsTileState extends State<_NewsTile> {
 
   Color get _impactColor {
     switch (widget.event.impact) {
-      case NewsImpact.high:    return AppColors.impactHigh;
-      case NewsImpact.medium:  return AppColors.impactMedium;
-      case NewsImpact.low:     return AppColors.impactLow;
-      case NewsImpact.unknown: return AppColors.impactNeutral;
+      case NewsImpact.high:
+        return AppColors.impactHigh;
+      case NewsImpact.medium:
+        return AppColors.impactMedium;
+      case NewsImpact.low:
+        return AppColors.impactLow;
+      case NewsImpact.unknown:
+        return AppColors.impactNeutral;
     }
   }
 
   String get _impactLabel {
     switch (widget.event.impact) {
-      case NewsImpact.high:    return 'HIGH';
-      case NewsImpact.medium:  return 'MED';
-      case NewsImpact.low:     return 'LOW';
-      case NewsImpact.unknown: return '—';
+      case NewsImpact.high:
+        return 'HIGH';
+      case NewsImpact.medium:
+        return 'MED';
+      case NewsImpact.low:
+        return 'LOW';
+      case NewsImpact.unknown:
+        return '—';
     }
   }
 
   /// Color for the gold-direction badge.
   Color _directionColor(AnalysisDirection d) {
     switch (d) {
-      case AnalysisDirection.bullish:  return AppColors.success;
-      case AnalysisDirection.bearish:  return AppColors.warning;
-      case AnalysisDirection.volatile: return AppColors.accent;
-      case AnalysisDirection.neutral:  return AppColors.textMuted;
-      case AnalysisDirection.unknown:  return AppColors.textMuted;
+      case AnalysisDirection.bullish:
+        return AppColors.success;
+      case AnalysisDirection.bearish:
+        return AppColors.warning;
+      case AnalysisDirection.volatile:
+        return AppColors.accent;
+      case AnalysisDirection.neutral:
+        return AppColors.textMuted;
+      case AnalysisDirection.unknown:
+        return AppColors.textMuted;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final event    = widget.event;
+    final event = widget.event;
     final analysis = NewsAnalysisEngine.analyzeForGold(event);
-    final autoSentiment =
-        NewsSentimentClassifier.classify(event, analysis);
+    final autoSentiment = NewsSentimentClassifier.classify(event, analysis);
 
     return InkWell(
       onTap: () => setState(() => _expanded = !_expanded),
@@ -415,8 +438,10 @@ class _NewsTileState extends State<_NewsTile> {
             Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: _impactColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -443,8 +468,7 @@ class _NewsTileState extends State<_NewsTile> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Text(_timeAgo(event.publishedAt),
-                    style: AppTypography.caption),
+                Text(_timeAgo(event.publishedAt), style: AppTypography.caption),
               ],
             ),
             const SizedBox(height: 8),
@@ -466,14 +490,18 @@ class _NewsTileState extends State<_NewsTile> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      color: _directionColor(analysis.direction)
-                          .withValues(alpha: 0.15),
+                      color: _directionColor(
+                        analysis.direction,
+                      ).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
                       border: Border.all(
-                        color: _directionColor(analysis.direction)
-                            .withValues(alpha: 0.5),
+                        color: _directionColor(
+                          analysis.direction,
+                        ).withValues(alpha: 0.5),
                         width: 0.5,
                       ),
                     ),
@@ -541,17 +569,23 @@ class _NewsTileState extends State<_NewsTile> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (analysis != null) ...[
-                      _section('WHY THIS MOVES ${analysis.assetDisplay}',
-                          analysis.why),
+                      _section(
+                        'WHY THIS MOVES ${analysis.assetDisplay}',
+                        analysis.why,
+                      ),
                       if (analysis.beatScenario != null) ...[
                         const SizedBox(height: 10),
-                        _section('IF IT BEATS FORECAST',
-                            analysis.beatScenario!),
+                        _section(
+                          'IF IT BEATS FORECAST',
+                          analysis.beatScenario!,
+                        ),
                       ],
                       if (analysis.missScenario != null) ...[
                         const SizedBox(height: 10),
-                        _section('IF IT MISSES FORECAST',
-                            analysis.missScenario!),
+                        _section(
+                          'IF IT MISSES FORECAST',
+                          analysis.missScenario!,
+                        ),
                       ],
                       if (analysis.whatToWatch != null) ...[
                         const SizedBox(height: 10),
@@ -575,32 +609,31 @@ class _NewsTileState extends State<_NewsTile> {
                     ],
                     const SizedBox(height: 14),
                     // User's own call — still useful for journaling
-                    Text('MY CALL',
-                        style: AppTypography.label.copyWith(fontSize: 10)),
+                    Text(
+                      'MY CALL',
+                      style: AppTypography.label.copyWith(fontSize: 10),
+                    ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
                         _SentimentChip(
                           label: 'BULL',
                           color: AppColors.success,
-                          selected:
-                              event.sentiment == NewsSentiment.bullish,
+                          selected: event.sentiment == NewsSentiment.bullish,
                           onTap: () => widget.onTag(NewsSentiment.bullish),
                         ),
                         const SizedBox(width: 6),
                         _SentimentChip(
                           label: 'BEAR',
                           color: AppColors.warning,
-                          selected:
-                              event.sentiment == NewsSentiment.bearish,
+                          selected: event.sentiment == NewsSentiment.bearish,
                           onTap: () => widget.onTag(NewsSentiment.bearish),
                         ),
                         const SizedBox(width: 6),
                         _SentimentChip(
                           label: 'NEUT',
                           color: AppColors.textMuted,
-                          selected:
-                              event.sentiment == NewsSentiment.neutral,
+                          selected: event.sentiment == NewsSentiment.neutral,
                           onTap: () => widget.onTag(NewsSentiment.neutral),
                         ),
                       ],
@@ -634,7 +667,7 @@ class _NewsTileState extends State<_NewsTile> {
 
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1)  return 'just now';
+    if (diff.inMinutes < 1) return 'just now';
     if (diff.inMinutes < 60) return '${diff.inMinutes}m';
     return '${diff.inHours}h';
   }
@@ -658,10 +691,7 @@ class _AutoSentimentChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 0.5,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
       ),
       child: Text(
         label,
@@ -698,15 +728,17 @@ class _SentimentChip extends StatelessWidget {
             width: 0.5,
           ),
         ),
-        child: Text(label, style: AppTypography.chip.copyWith(
-          color: selected ? color : AppColors.textMuted,
-          fontSize: 10,
-        )),
+        child: Text(
+          label,
+          style: AppTypography.chip.copyWith(
+            color: selected ? color : AppColors.textMuted,
+            fontSize: 10,
+          ),
+        ),
       ),
     );
   }
 }
-
 
 // ── Rules Tab ─────────────────────────────────────────────────────────────────
 
@@ -723,24 +755,30 @@ class _RulesTab extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             children: [
-              Text('MY RULES',
-                  style: AppTypography.label.copyWith(letterSpacing: 2)),
+              Text(
+                'MY RULES',
+                style: AppTypography.label.copyWith(letterSpacing: 2),
+              ),
               const Spacer(),
               GestureDetector(
                 onTap: () => _showAddRuleSheet(context),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: AppColors.accent.withValues(alpha: 0.4),
-                        width: 0.5),
+                      color: AppColors.accent.withValues(alpha: 0.4),
+                      width: 0.5,
+                    ),
                   ),
-                  child: Text('+ ADD RULE',
-                      style: AppTypography.chip
-                          .copyWith(color: AppColors.accent)),
+                  child: Text(
+                    '+ ADD RULE',
+                    style: AppTypography.chip.copyWith(color: AppColors.accent),
+                  ),
                 ),
               ),
             ],
@@ -752,14 +790,18 @@ class _RulesTab extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.shield_outlined,
-                      size: 32, color: AppColors.textMuted),
+                  const Icon(
+                    Icons.shield_outlined,
+                    size: 32,
+                    color: AppColors.textMuted,
+                  ),
                   const SizedBox(height: 10),
-                  Text('No rules defined yet',
-                      style: AppTypography.body),
+                  Text('No rules defined yet', style: AppTypography.body),
                   const SizedBox(height: 4),
-                  Text('Add your own trading rules',
-                      style: AppTypography.caption),
+                  Text(
+                    'Add your own trading rules',
+                    style: AppTypography.caption,
+                  ),
                 ],
               ),
             ),
@@ -772,8 +814,8 @@ class _RulesTab extends StatelessWidget {
               itemCount: rules.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, i) => _RuleTile(
-                rule:    rules[i],
-                index:   i + 1,
+                rule: rules[i],
+                index: i + 1,
                 onDelete: () => vm.deleteRule(rules[i].id),
               ),
             ),
@@ -784,52 +826,67 @@ class _RulesTab extends StatelessWidget {
 
   void _showAddRuleSheet(BuildContext context) {
     final titleCtrl = TextEditingController();
-    final descCtrl  = TextEditingController();
-    bool isNoTrade  = false;
+    final descCtrl = TextEditingController();
+    bool isNoTrade = false;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) => Padding(
           padding: EdgeInsets.fromLTRB(
-              20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+            20,
+            20,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Container(width: 36, height: 3,
-                  decoration: BoxDecoration(color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2)))),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               Text('ADD TRADING RULE', style: AppTypography.label),
               const SizedBox(height: 16),
               TextField(
                 controller: titleCtrl,
-                style: AppTypography.body
-                    .copyWith(color: AppColors.textPrimary),
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textPrimary,
+                ),
                 decoration: const InputDecoration(hintText: 'Rule title'),
               ),
               const SizedBox(height: 10),
               TextField(
                 controller: descCtrl,
                 maxLines: 2,
-                style: AppTypography.body
-                    .copyWith(color: AppColors.textPrimary),
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textPrimary,
+                ),
                 decoration: const InputDecoration(
-                    hintText: 'Why this rule matters...'),
+                  hintText: 'Why this rule matters...',
+                ),
               ),
               const SizedBox(height: 12),
               GestureDetector(
-                onTap: () =>
-                    setSheetState(() => isNoTrade = !isNoTrade),
+                onTap: () => setSheetState(() => isNoTrade = !isNoTrade),
                 child: Row(
                   children: [
                     Container(
-                      width: 20, height: 20,
+                      width: 20,
+                      height: 20,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isNoTrade
@@ -843,13 +900,18 @@ class _RulesTab extends StatelessWidget {
                         ),
                       ),
                       child: isNoTrade
-                          ? const Icon(Icons.check,
-                              size: 12, color: AppColors.warning)
+                          ? const Icon(
+                              Icons.check,
+                              size: 12,
+                              color: AppColors.warning,
+                            )
                           : null,
                     ),
                     const SizedBox(width: 10),
-                    Text('NO TRADE rule (hard stop)',
-                        style: AppTypography.body),
+                    Text(
+                      'NO TRADE rule (hard stop)',
+                      style: AppTypography.body,
+                    ),
                   ],
                 ),
               ),
@@ -862,22 +924,27 @@ class _RulesTab extends StatelessWidget {
                     foregroundColor: AppColors.background,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   onPressed: () {
                     final title = titleCtrl.text.trim();
-                    final desc  = descCtrl.text.trim();
+                    final desc = descCtrl.text.trim();
                     if (title.isEmpty) return;
                     Navigator.pop(ctx);
                     vm.addRule(
-                      title:        title,
-                      description:  desc.isEmpty ? title : desc,
+                      title: title,
+                      description: desc.isEmpty ? title : desc,
                       isNoTradeRule: isNoTrade,
                     );
                   },
-                  child: Text('SAVE RULE',
-                      style: AppTypography.h3.copyWith(
-                          color: AppColors.background, fontSize: 13)),
+                  child: Text(
+                    'SAVE RULE',
+                    style: AppTypography.h3.copyWith(
+                      color: AppColors.background,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -917,15 +984,20 @@ class _RuleTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 24, height: 24,
+            width: 24,
+            height: 24,
             decoration: BoxDecoration(
               color: AppColors.surfaceVar,
               borderRadius: BorderRadius.circular(6),
             ),
             child: Center(
-              child: Text('$index', style: AppTypography.mono.copyWith(
-                fontSize: 11, color: AppColors.textMuted,
-              )),
+              child: Text(
+                '$index',
+                style: AppTypography.mono.copyWith(
+                  fontSize: 11,
+                  color: AppColors.textMuted,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -935,19 +1007,29 @@ class _RuleTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text(rule.title,
-                        style: AppTypography.h3.copyWith(fontSize: 13))),
+                    Expanded(
+                      child: Text(
+                        rule.title,
+                        style: AppTypography.h3.copyWith(fontSize: 13),
+                      ),
+                    ),
                     if (rule.isNoTradeRule)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.warning.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Text('NO TRADE', style: AppTypography.chip.copyWith(
-                          color: AppColors.warning, fontSize: 9,
-                        )),
+                        child: Text(
+                          'NO TRADE',
+                          style: AppTypography.chip.copyWith(
+                            color: AppColors.warning,
+                            fontSize: 9,
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -968,7 +1050,6 @@ class _RuleTile extends StatelessWidget {
     );
   }
 }
-
 
 // ── Bias Tab ──────────────────────────────────────────────────────────────────
 
@@ -997,7 +1078,9 @@ class _BiasTab extends StatelessWidget {
                 onTap: () => _showAddBiasSheet(context),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceVar,
                     borderRadius: BorderRadius.circular(8),
@@ -1006,8 +1089,11 @@ class _BiasTab extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.add, size: 12,
-                          color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.add,
+                        size: 12,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 4),
                       Text('ADD', style: AppTypography.chip),
                     ],
@@ -1018,20 +1104,27 @@ class _BiasTab extends StatelessWidget {
           ),
         ),
         if (biases.isEmpty)
-          Expanded(child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.compass_calibration_outlined,
-                    color: AppColors.textMuted, size: 28),
-                const SizedBox(height: 10),
-                Text('No bias entries', style: AppTypography.body),
-                const SizedBox(height: 4),
-                Text('Set your directional bias before trading',
-                    style: AppTypography.caption),
-              ],
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.compass_calibration_outlined,
+                    color: AppColors.textMuted,
+                    size: 28,
+                  ),
+                  const SizedBox(height: 10),
+                  Text('No bias entries', style: AppTypography.body),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Set your directional bias before trading',
+                    style: AppTypography.caption,
+                  ),
+                ],
+              ),
             ),
-          ))
+          )
         else
           Expanded(
             child: ListView.separated(
@@ -1040,7 +1133,7 @@ class _BiasTab extends StatelessWidget {
               itemCount: biases.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (_, i) => _BiasTile(
-                bias:     biases[i],
+                bias: biases[i],
                 onRemove: () => vm.removeBias(biases[i].id),
               ),
             ),
@@ -1051,7 +1144,7 @@ class _BiasTab extends StatelessWidget {
 
   void _showAddBiasSheet(BuildContext context) {
     final instrumentCtrl = TextEditingController();
-    final reasonCtrl     = TextEditingController();
+    final reasonCtrl = TextEditingController();
     BiasDirection direction = BiasDirection.bullish;
 
     showModalBottomSheet(
@@ -1064,27 +1157,36 @@ class _BiasTab extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => Padding(
           padding: EdgeInsets.fromLTRB(
-              20, 20, 20,
-              MediaQuery.of(ctx).viewInsets.bottom + 20),
+            20,
+            20,
+            20,
+            MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Container(
-                width: 36, height: 3,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              )),
+              ),
               const SizedBox(height: 20),
               Text('ADD BIAS', style: AppTypography.label),
               const SizedBox(height: 12),
               TextField(
                 controller: instrumentCtrl,
                 style: AppTypography.body.copyWith(
-                    color: AppColors.textPrimary),
-                decoration: const InputDecoration(hintText: 'Instrument (e.g. EURUSD)'),
+                  color: AppColors.textPrimary,
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'Instrument (e.g. EURUSD)',
+                ),
               ),
               const SizedBox(height: 10),
               Row(
@@ -1093,8 +1195,8 @@ class _BiasTab extends StatelessWidget {
                   final color = d == BiasDirection.bullish
                       ? AppColors.success
                       : d == BiasDirection.bearish
-                          ? AppColors.warning
-                          : AppColors.textMuted;
+                      ? AppColors.warning
+                      : AppColors.textMuted;
                   return Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1103,16 +1205,21 @@ class _BiasTab extends StatelessWidget {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
-                            color: sel ? color.withValues(alpha: 0.1) : AppColors.surfaceVar,
+                            color: sel
+                                ? color.withValues(alpha: 0.1)
+                                : AppColors.surfaceVar,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: sel ? color : AppColors.border, width: 0.5),
+                              color: sel ? color : AppColors.border,
+                              width: 0.5,
+                            ),
                           ),
                           child: Center(
                             child: Text(
                               d.name.toUpperCase(),
                               style: AppTypography.chip.copyWith(
-                                color: sel ? color : AppColors.textMuted),
+                                color: sel ? color : AppColors.textMuted,
+                              ),
                             ),
                           ),
                         ),
@@ -1126,7 +1233,8 @@ class _BiasTab extends StatelessWidget {
                 controller: reasonCtrl,
                 maxLines: 3,
                 style: AppTypography.body.copyWith(
-                    color: AppColors.textPrimary),
+                  color: AppColors.textPrimary,
+                ),
                 decoration: const InputDecoration(hintText: 'Reasoning...'),
               ),
               const SizedBox(height: 16),
@@ -1138,8 +1246,8 @@ class _BiasTab extends StatelessWidget {
                         reasonCtrl.text.trim().isNotEmpty) {
                       vm.addBias(
                         instrument: instrumentCtrl.text.trim(),
-                        direction:  direction,
-                        reasoning:  reasonCtrl.text.trim(),
+                        direction: direction,
+                        reasoning: reasonCtrl.text.trim(),
                       );
                       Navigator.pop(ctx);
                     }
@@ -1149,10 +1257,16 @@ class _BiasTab extends StatelessWidget {
                     foregroundColor: AppColors.background,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: Text('SAVE', style: AppTypography.h3.copyWith(
-                    color: AppColors.background, fontSize: 13)),
+                  child: Text(
+                    'SAVE',
+                    style: AppTypography.h3.copyWith(
+                      color: AppColors.background,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1171,9 +1285,12 @@ class _BiasTile extends StatelessWidget {
 
   Color get _color {
     switch (bias.direction) {
-      case BiasDirection.bullish: return AppColors.success;
-      case BiasDirection.bearish: return AppColors.warning;
-      case BiasDirection.neutral: return AppColors.textMuted;
+      case BiasDirection.bullish:
+        return AppColors.success;
+      case BiasDirection.bearish:
+        return AppColors.warning;
+      case BiasDirection.neutral:
+        return AppColors.textMuted;
     }
   }
 
@@ -1189,7 +1306,8 @@ class _BiasTile extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 3, height: 40,
+            width: 3,
+            height: 40,
             decoration: BoxDecoration(
               color: _color,
               borderRadius: BorderRadius.circular(2),
@@ -1202,19 +1320,27 @@ class _BiasTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(bias.instrument.toUpperCase(),
-                        style: AppTypography.h3.copyWith(fontSize: 13)),
+                    Text(
+                      bias.instrument.toUpperCase(),
+                      style: AppTypography.h3.copyWith(fontSize: 13),
+                    ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: _color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(bias.direction.name.toUpperCase(),
-                          style: AppTypography.chip.copyWith(
-                              color: _color, fontSize: 9)),
+                      child: Text(
+                        bias.direction.name.toUpperCase(),
+                        style: AppTypography.chip.copyWith(
+                          color: _color,
+                          fontSize: 9,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1225,15 +1351,17 @@ class _BiasTile extends StatelessWidget {
           ),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close,
-                size: 14, color: AppColors.textMuted),
+            child: const Icon(
+              Icons.close,
+              size: 14,
+              color: AppColors.textMuted,
+            ),
           ),
         ],
       ),
     );
   }
 }
-
 
 // ── Targets Tab ───────────────────────────────────────────────────────────────
 
@@ -1250,9 +1378,15 @@ class _TargetsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext _) {
-    final active    = targets.where((t) => t.status == TargetStatus.active).toList();
-    final completed = targets.where((t) => t.status == TargetStatus.completed).toList();
-    final abandoned = targets.where((t) => t.status == TargetStatus.abandoned).toList();
+    final active = targets
+        .where((t) => t.status == TargetStatus.active)
+        .toList();
+    final completed = targets
+        .where((t) => t.status == TargetStatus.completed)
+        .toList();
+    final abandoned = targets
+        .where((t) => t.status == TargetStatus.abandoned)
+        .toList();
 
     return Column(
       children: [
@@ -1265,7 +1399,10 @@ class _TargetsTab extends StatelessWidget {
               GestureDetector(
                 onTap: () => _showAddTargetSheet(context),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceVar,
                     borderRadius: BorderRadius.circular(8),
@@ -1274,7 +1411,11 @@ class _TargetsTab extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.add, size: 12, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.add,
+                        size: 12,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 4),
                       Text('NEW', style: AppTypography.chip),
                     ],
@@ -1290,12 +1431,18 @@ class _TargetsTab extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.flag_outlined, color: AppColors.textMuted, size: 28),
+                  const Icon(
+                    Icons.flag_outlined,
+                    color: AppColors.textMuted,
+                    size: 28,
+                  ),
                   const SizedBox(height: 10),
                   Text('No targets yet', style: AppTypography.body),
                   const SizedBox(height: 4),
-                  Text('Set a capital growth target to begin',
-                      style: AppTypography.caption),
+                  Text(
+                    'Set a capital growth target to begin',
+                    style: AppTypography.caption,
+                  ),
                 ],
               ),
             ),
@@ -1308,26 +1455,32 @@ class _TargetsTab extends StatelessWidget {
               children: [
                 if (active.isNotEmpty) ...[
                   _sectionLabel('ACTIVE'),
-                  ...active.map((t) => _TargetCard(
-                    target:    t,
-                    onUpdate:  (cap) => vm.updateTargetCapital(t.id, cap),
-                    onAbandon: () => vm.abandonTarget(t.id),
-                    onDelete:  () => vm.deleteTarget(t.id),
-                  )),
+                  ...active.map(
+                    (t) => _TargetCard(
+                      target: t,
+                      onUpdate: (cap) => vm.updateTargetCapital(t.id, cap),
+                      onAbandon: () => vm.abandonTarget(t.id),
+                      onDelete: () => vm.deleteTarget(t.id),
+                    ),
+                  ),
                 ],
                 if (completed.isNotEmpty) ...[
                   _sectionLabel('COMPLETED'),
-                  ...completed.map((t) => _TargetCard(
-                    target:   t,
-                    onDelete: () => vm.deleteTarget(t.id),
-                  )),
+                  ...completed.map(
+                    (t) => _TargetCard(
+                      target: t,
+                      onDelete: () => vm.deleteTarget(t.id),
+                    ),
+                  ),
                 ],
                 if (abandoned.isNotEmpty) ...[
                   _sectionLabel('ABANDONED'),
-                  ...abandoned.map((t) => _TargetCard(
-                    target:   t,
-                    onDelete: () => vm.deleteTarget(t.id),
-                  )),
+                  ...abandoned.map(
+                    (t) => _TargetCard(
+                      target: t,
+                      onDelete: () => vm.deleteTarget(t.id),
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -1338,25 +1491,30 @@ class _TargetsTab extends StatelessWidget {
 
   Widget _sectionLabel(String label) => Padding(
     padding: const EdgeInsets.only(bottom: 8, top: 4),
-    child: Text(label,
-        style: AppTypography.label.copyWith(fontSize: 10, color: AppColors.textMuted)),
+    child: Text(
+      label,
+      style: AppTypography.label.copyWith(
+        fontSize: 10,
+        color: AppColors.textMuted,
+      ),
+    ),
   );
 
   void _showAddTargetSheet(BuildContext context) {
-    final titleCtrl     = TextEditingController();
-    final startCtrl     = TextEditingController();
-    final targetCtrl    = TextEditingController();
-    final dailyCtrl     = TextEditingController();
-    final sessionCtrl   = TextEditingController();
-    final lotCtrl       = TextEditingController();
+    final titleCtrl = TextEditingController();
+    final startCtrl = TextEditingController();
+    final targetCtrl = TextEditingController();
+    final dailyCtrl = TextEditingController();
+    final sessionCtrl = TextEditingController();
+    final lotCtrl = TextEditingController();
     final maxTradesCtrl = TextEditingController(text: '2');
-    final maxLossCtrl   = TextEditingController(text: '2');
-    final stopLossCtrl  = TextEditingController();
-    final tfValueCtrl   = TextEditingController(text: '5');
-    final notesCtrl     = TextEditingController();
+    final maxLossCtrl = TextEditingController(text: '2');
+    final stopLossCtrl = TextEditingController();
+    final tfValueCtrl = TextEditingController(text: '5');
+    final notesCtrl = TextEditingController();
 
-    TargetTimeframe tf       = TargetTimeframe.days;
-    bool stopAfterDaily      = true;
+    TargetTimeframe tf = TargetTimeframe.days;
+    bool stopAfterDaily = true;
     bool stopAfterLossThresh = true;
 
     showModalBottomSheet(
@@ -1373,29 +1531,40 @@ class _TargetsTab extends StatelessWidget {
           builder: (_, ctrl) => ListView(
             controller: ctrl,
             padding: EdgeInsets.fromLTRB(
-                20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 20),
+              20,
+              20,
+              20,
+              MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
             children: [
-              Center(child: Container(
-                width: 36, height: 3,
-                decoration: BoxDecoration(color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2)),
-              )),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
               const SizedBox(height: 16),
               Text('NEW TARGET', style: AppTypography.label),
               const SizedBox(height: 16),
-              _field(titleCtrl,    'Title (e.g. Grow to \$100 in 5 days)'),
-              _field(startCtrl,    'Starting capital (\$)', number: true),
-              _field(targetCtrl,   'Target capital (\$)', number: true),
-              _field(dailyCtrl,    'Daily target (\$)', number: true),
-              _field(sessionCtrl,  'Session target (\$)', number: true),
-              _field(lotCtrl,      'Lot size (e.g. 0.01)', number: true),
-              _field(maxTradesCtrl,'Max trades per session', number: true),
-              _field(maxLossCtrl,  'Max daily losses', number: true),
+              _field(titleCtrl, 'Title (e.g. Grow to \$100 in 5 days)'),
+              _field(startCtrl, 'Starting capital (\$)', number: true),
+              _field(targetCtrl, 'Target capital (\$)', number: true),
+              _field(dailyCtrl, 'Daily target (\$)', number: true),
+              _field(sessionCtrl, 'Session target (\$)', number: true),
+              _field(lotCtrl, 'Lot size (e.g. 0.01)', number: true),
+              _field(maxTradesCtrl, 'Max trades per session', number: true),
+              _field(maxLossCtrl, 'Max daily losses', number: true),
               _field(stopLossCtrl, 'Stop-loss threshold (\$)', number: true),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Expanded(child: _field(tfValueCtrl, 'Duration', number: true)),
+                  Expanded(
+                    child: _field(tfValueCtrl, 'Duration', number: true),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Container(
@@ -1410,11 +1579,19 @@ class _TargetsTab extends StatelessWidget {
                           value: tf,
                           dropdownColor: AppColors.surface,
                           style: AppTypography.body.copyWith(
-                              color: AppColors.textPrimary),
-                          items: TargetTimeframe.values.map((v) =>
-                              DropdownMenuItem(value: v,
-                                  child: Text(v.label,
-                                      style: AppTypography.body))).toList(),
+                            color: AppColors.textPrimary,
+                          ),
+                          items: TargetTimeframe.values
+                              .map(
+                                (v) => DropdownMenuItem(
+                                  value: v,
+                                  child: Text(
+                                    v.label,
+                                    style: AppTypography.body,
+                                  ),
+                                ),
+                              )
+                              .toList(),
                           onChanged: (v) {
                             if (v != null) setState(() => tf = v);
                           },
@@ -1428,14 +1605,20 @@ class _TargetsTab extends StatelessWidget {
               SwitchListTile(
                 value: stopAfterDaily,
                 onChanged: (v) => setState(() => stopAfterDaily = v),
-                title: Text('Stop after daily target hit', style: AppTypography.body),
+                title: Text(
+                  'Stop after daily target hit',
+                  style: AppTypography.body,
+                ),
                 contentPadding: EdgeInsets.zero,
                 activeThumbColor: AppColors.accent,
               ),
               SwitchListTile(
                 value: stopAfterLossThresh,
                 onChanged: (v) => setState(() => stopAfterLossThresh = v),
-                title: Text('Stop after loss threshold', style: AppTypography.body),
+                title: Text(
+                  'Stop after loss threshold',
+                  style: AppTypography.body,
+                ),
                 contentPadding: EdgeInsets.zero,
                 activeThumbColor: AppColors.accent,
               ),
@@ -1445,42 +1628,59 @@ class _TargetsTab extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    final start  = double.tryParse(startCtrl.text)  ?? 0;
-                    final tgt    = double.tryParse(targetCtrl.text) ?? 0;
-                    final tfVal  = int.tryParse(tfValueCtrl.text)   ?? 5;
-                    if (titleCtrl.text.trim().isEmpty || start <= 0 || tgt <= start) return;
+                    final start = double.tryParse(startCtrl.text) ?? 0;
+                    final tgt = double.tryParse(targetCtrl.text) ?? 0;
+                    final tfVal = int.tryParse(tfValueCtrl.text) ?? 5;
+                    if (titleCtrl.text.trim().isEmpty ||
+                        start <= 0 ||
+                        tgt <= start) {
+                      return;
+                    }
 
                     Duration dur;
                     switch (tf) {
-                      case TargetTimeframe.hours:  dur = Duration(hours: tfVal); break;
-                      case TargetTimeframe.days:   dur = Duration(days:  tfVal); break;
-                      case TargetTimeframe.weeks:  dur = Duration(days:  tfVal * 7); break;
-                      case TargetTimeframe.months: dur = Duration(days:  tfVal * 30); break;
+                      case TargetTimeframe.hours:
+                        dur = Duration(hours: tfVal);
+                        break;
+                      case TargetTimeframe.days:
+                        dur = Duration(days: tfVal);
+                        break;
+                      case TargetTimeframe.weeks:
+                        dur = Duration(days: tfVal * 7);
+                        break;
+                      case TargetTimeframe.months:
+                        dur = Duration(days: tfVal * 30);
+                        break;
                     }
 
-                    vm.addTarget(TradingTarget(
-                      id:                     const Uuid().v4(),
-                      title:                  titleCtrl.text.trim(),
-                      startingCapital:        start,
-                      targetCapital:          tgt,
-                      currentCapital:         start,
-                      dailyTarget:            double.tryParse(dailyCtrl.text)    ?? 0,
-                      sessionTarget:          double.tryParse(sessionCtrl.text)  ?? 0,
-                      lotSize:                double.tryParse(lotCtrl.text)      ?? 0.01,
-                      maxTradesPerSession:    int.tryParse(maxTradesCtrl.text)   ?? 2,
-                      maxDailyLosses:         int.tryParse(maxLossCtrl.text)     ?? 2,
-                      stopLossThreshold:      double.tryParse(stopLossCtrl.text) ?? 0,
-                      stopAfterDailyTarget:   stopAfterDaily,
-                      stopAfterLossThreshold: stopAfterLossThresh,
-                      timeframe:              tf,
-                      timeframeValue:         tfVal,
-                      startDate:              DateTime.now(),
-                      endDate:                DateTime.now().add(dur),
-                      status:                 TargetStatus.active,
-                      notes:                  notesCtrl.text.trim().isEmpty
-                          ? null : notesCtrl.text.trim(),
-                      createdAt:              DateTime.now(),
-                    ));
+                    vm.addTarget(
+                      TradingTarget(
+                        id: const Uuid().v4(),
+                        title: titleCtrl.text.trim(),
+                        startingCapital: start,
+                        targetCapital: tgt,
+                        currentCapital: start,
+                        dailyTarget: double.tryParse(dailyCtrl.text) ?? 0,
+                        sessionTarget: double.tryParse(sessionCtrl.text) ?? 0,
+                        lotSize: double.tryParse(lotCtrl.text) ?? 0.01,
+                        maxTradesPerSession:
+                            int.tryParse(maxTradesCtrl.text) ?? 2,
+                        maxDailyLosses: int.tryParse(maxLossCtrl.text) ?? 2,
+                        stopLossThreshold:
+                            double.tryParse(stopLossCtrl.text) ?? 0,
+                        stopAfterDailyTarget: stopAfterDaily,
+                        stopAfterLossThreshold: stopAfterLossThresh,
+                        timeframe: tf,
+                        timeframeValue: tfVal,
+                        startDate: DateTime.now(),
+                        endDate: DateTime.now().add(dur),
+                        status: TargetStatus.active,
+                        notes: notesCtrl.text.trim().isEmpty
+                            ? null
+                            : notesCtrl.text.trim(),
+                        createdAt: DateTime.now(),
+                      ),
+                    );
                     Navigator.pop(ctx);
                   },
                   style: ElevatedButton.styleFrom(
@@ -1488,10 +1688,16 @@ class _TargetsTab extends StatelessWidget {
                     foregroundColor: AppColors.background,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: Text('CREATE TARGET', style: AppTypography.h3.copyWith(
-                      color: AppColors.background, fontSize: 13)),
+                  child: Text(
+                    'CREATE TARGET',
+                    style: AppTypography.h3.copyWith(
+                      color: AppColors.background,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1501,8 +1707,12 @@ class _TargetsTab extends StatelessWidget {
     );
   }
 
-  Widget _field(TextEditingController ctrl, String hint,
-      {bool number = false, int maxLines = 1}) {
+  Widget _field(
+    TextEditingController ctrl,
+    String hint, {
+    bool number = false,
+    int maxLines = 1,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: TextField(
@@ -1517,7 +1727,6 @@ class _TargetsTab extends StatelessWidget {
     );
   }
 }
-
 
 // ── Target Card ───────────────────────────────────────────────────────────────
 
@@ -1536,9 +1745,12 @@ class _TargetCard extends StatelessWidget {
 
   Color get _statusColor {
     switch (target.status) {
-      case TargetStatus.active:    return AppColors.success;
-      case TargetStatus.completed: return AppColors.accent;
-      case TargetStatus.abandoned: return AppColors.textMuted;
+      case TargetStatus.active:
+        return AppColors.success;
+      case TargetStatus.completed:
+        return AppColors.accent;
+      case TargetStatus.abandoned:
+        return AppColors.textMuted;
     }
   }
 
@@ -1557,16 +1769,25 @@ class _TargetCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(target.title,
-                  style: AppTypography.h3.copyWith(fontSize: 13))),
+              Expanded(
+                child: Text(
+                  target.title,
+                  style: AppTypography.h3.copyWith(fontSize: 13),
+                ),
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: _statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Text(target.status.label, style: AppTypography.chip.copyWith(
-                    color: _statusColor, fontSize: 9)),
+                child: Text(
+                  target.status.label,
+                  style: AppTypography.chip.copyWith(
+                    color: _statusColor,
+                    fontSize: 9,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1575,10 +1796,14 @@ class _TargetCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text('\$${target.currentCapital.toStringAsFixed(2)}',
-                  style: AppTypography.h2.copyWith(fontSize: 18)),
-              Text(' / \$${target.targetCapital.toStringAsFixed(2)}',
-                  style: AppTypography.caption),
+              Text(
+                '\$${target.currentCapital.toStringAsFixed(2)}',
+                style: AppTypography.h2.copyWith(fontSize: 18),
+              ),
+              Text(
+                ' / \$${target.targetCapital.toStringAsFixed(2)}',
+                style: AppTypography.caption,
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -1594,18 +1819,21 @@ class _TargetCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              _Stat('LOT',     '${target.lotSize}'),
+              _Stat('LOT', '${target.lotSize}'),
               const SizedBox(width: 16),
-              _Stat('DAILY',   '\$${target.dailyTarget.toStringAsFixed(0)}'),
+              _Stat('DAILY', '\$${target.dailyTarget.toStringAsFixed(0)}'),
               const SizedBox(width: 16),
               _Stat('SESSION', '\$${target.sessionTarget.toStringAsFixed(0)}'),
               const Spacer(),
               if (target.status == TargetStatus.active)
-                Text('${target.daysRemaining}d left',
-                    style: AppTypography.caption.copyWith(
-                        color: target.daysRemaining < 2
-                            ? AppColors.warning
-                            : AppColors.textMuted)),
+                Text(
+                  '${target.daysRemaining}d left',
+                  style: AppTypography.caption.copyWith(
+                    color: target.daysRemaining < 2
+                        ? AppColors.warning
+                        : AppColors.textMuted,
+                  ),
+                ),
             ],
           ),
           if (target.status == TargetStatus.active) ...[
@@ -1616,15 +1844,25 @@ class _TargetCard extends StatelessWidget {
               children: [
                 GestureDetector(
                   onTap: () => _showUpdateSheet(context),
-                  child: Text('UPDATE CAPITAL', style: AppTypography.label.copyWith(
-                      color: AppColors.accent, fontSize: 10)),
+                  child: Text(
+                    'UPDATE CAPITAL',
+                    style: AppTypography.label.copyWith(
+                      color: AppColors.accent,
+                      fontSize: 10,
+                    ),
+                  ),
                 ),
                 const Spacer(),
                 if (onAbandon != null)
                   GestureDetector(
                     onTap: onAbandon,
-                    child: Text('ABANDON', style: AppTypography.label.copyWith(
-                        color: AppColors.warning, fontSize: 10)),
+                    child: Text(
+                      'ABANDON',
+                      style: AppTypography.label.copyWith(
+                        color: AppColors.warning,
+                        fontSize: 10,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -1634,8 +1872,13 @@ class _TargetCard extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: GestureDetector(
                 onTap: onDelete,
-                child: Text('DELETE', style: AppTypography.label.copyWith(
-                    color: AppColors.textMuted, fontSize: 10)),
+                child: Text(
+                  'DELETE',
+                  style: AppTypography.label.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 10,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1645,8 +1888,10 @@ class _TargetCard extends StatelessWidget {
   }
 
   void _showUpdateSheet(BuildContext context) {
-    final ctrl = TextEditingController(
-        text: target.currentCapital.toStringAsFixed(2));
+    final addCtrl = TextEditingController();
+    final setCtrl = TextEditingController(
+      text: target.currentCapital.toStringAsFixed(2),
+    );
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1655,27 +1900,50 @@ class _TargetCard extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20,
-            MediaQuery.of(ctx).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(child: Container(
-              width: 36, height: 3,
-              decoration: BoxDecoration(color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2)),
-            )),
+            Center(
+              child: Container(
+                width: 36,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
             Text('UPDATE CAPITAL', style: AppTypography.label),
             const SizedBox(height: 12),
             TextField(
-              controller: ctrl,
+              controller: addCtrl,
               autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: AppTypography.h2.copyWith(color: AppColors.textPrimary),
               decoration: const InputDecoration(
-                hintText: 'Current capital (\$)',
+                hintText: 'Income / profit to add',
+                prefixText: '\$ ',
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: setCtrl,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: AppTypography.body.copyWith(color: AppColors.textPrimary),
+              decoration: const InputDecoration(
+                hintText: 'Set exact current capital',
                 prefixText: '\$ ',
               ),
             ),
@@ -1684,9 +1952,9 @@ class _TargetCard extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  final val = double.tryParse(ctrl.text);
+                  final val = double.tryParse(addCtrl.text);
                   if (val != null && onUpdate != null) {
-                    onUpdate!(val);
+                    onUpdate!(target.currentCapital + val);
                     Navigator.pop(ctx);
                   }
                 },
@@ -1695,10 +1963,44 @@ class _TargetCard extends StatelessWidget {
                   foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-                child: Text('SAVE', style: AppTypography.h3.copyWith(
-                    color: AppColors.background, fontSize: 13)),
+                child: Text(
+                  'ADD INCOME',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.background,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  final val = double.tryParse(setCtrl.text);
+                  if (val != null && onUpdate != null) {
+                    onUpdate!(val);
+                    Navigator.pop(ctx);
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: const BorderSide(color: AppColors.border, width: 0.5),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  'SET CAPITAL',
+                  style: AppTypography.h3.copyWith(
+                    color: AppColors.textPrimary,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1717,8 +2019,13 @@ class _Stat extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTypography.label.copyWith(
-            fontSize: 9, color: AppColors.textMuted)),
+        Text(
+          label,
+          style: AppTypography.label.copyWith(
+            fontSize: 9,
+            color: AppColors.textMuted,
+          ),
+        ),
         Text(value, style: AppTypography.mono.copyWith(fontSize: 12)),
       ],
     );

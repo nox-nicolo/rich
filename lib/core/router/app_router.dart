@@ -26,6 +26,7 @@ import 'package:rich/feature/settings/view/settings_screen.dart';
 import 'package:rich/feature/finance/view/finance_page.dart';
 import 'package:rich/feature/reports/view/reports_screen.dart';
 import 'package:rich/feature/milestones/view/milestones_screen.dart';
+import 'package:rich/feature/mentor/view/mentor_screen.dart';
 
 // ── Router Provider ───────────────────────────────────────────────────────────
 
@@ -34,7 +35,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: RouteNames.dashboard,
     debugLogDiagnostics: false,
     routes: [
-
       // Full-screen task focus (no bottom nav)
       GoRoute(
         path: '/work/focus/:taskId',
@@ -45,15 +45,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Full-screen meeting (no bottom nav)
       GoRoute(
         path: '/work/meeting/:meetingId',
-        builder: (_, state) => MeetingActiveScreen(
-          meetingId: state.pathParameters['meetingId']!,
-        ),
+        builder: (_, state) =>
+            MeetingActiveScreen(meetingId: state.pathParameters['meetingId']!),
       ),
 
       ShellRoute(
         builder: (context, state, child) => RichShell(child: child),
         routes: [
-
           GoRoute(
             path: RouteNames.dashboard,
             builder: (_, __) => const DashboardScreen(),
@@ -140,12 +138,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const MilestonesScreen(),
           ),
 
+          GoRoute(
+            path: RouteNames.mentor,
+            builder: (_, __) => const MentorScreen(),
+          ),
         ],
       ),
     ],
   );
 });
-
 
 // ── Shell — wraps all screens with bottom nav ─────────────────────────────────
 
@@ -159,17 +160,29 @@ class RichShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.toString();
 
     final items = [
-      _NavItem(RouteNames.dashboard,  Icons.space_dashboard_outlined, 'Command'),
-      _NavItem(RouteNames.meditation, Icons.self_improvement_outlined, 'Meditate'),
-      _NavItem(RouteNames.trading,    Icons.show_chart_outlined,       'Trading',
-          locked: lockedFeatures.contains(RichFeature.trading)),
-      _NavItem(RouteNames.betting,    Icons.sports_soccer_outlined,    'Betting',
-          locked: lockedFeatures.contains(RichFeature.betting)),
-      _NavItem(RouteNames.writing,    Icons.edit_note_outlined,        'Write'),
+      _NavItem(RouteNames.dashboard, Icons.space_dashboard_outlined, 'Command'),
+      _NavItem(
+        RouteNames.meditation,
+        Icons.self_improvement_outlined,
+        'Meditate',
+      ),
+      _NavItem(
+        RouteNames.trading,
+        Icons.show_chart_outlined,
+        'Trading',
+        locked: lockedFeatures.contains(RichFeature.trading),
+      ),
+      _NavItem(
+        RouteNames.betting,
+        Icons.sports_soccer_outlined,
+        'Betting',
+        locked: lockedFeatures.contains(RichFeature.betting),
+      ),
+      _NavItem(RouteNames.mentor, Icons.psychology_alt_outlined, 'Mentor'),
+      _NavItem(RouteNames.writing, Icons.edit_note_outlined, 'Write'),
     ];
 
-    int currentIndex =
-        items.indexWhere((i) => location.startsWith(i.route));
+    int currentIndex = items.indexWhere((i) => location.startsWith(i.route));
     if (currentIndex < 0) currentIndex = 0;
 
     return Scaffold(
@@ -181,8 +194,7 @@ class RichShell extends ConsumerWidget {
             .map(
               (item) => NavigationDestination(
                 icon: item.locked
-                    ? const Icon(Icons.lock_outline,
-                        size: AppSpacing.iconSm)
+                    ? const Icon(Icons.lock_outline, size: AppSpacing.iconSm)
                     : Icon(item.icon),
                 label: item.label,
               ),
@@ -199,10 +211,8 @@ class _NavItem {
   final String label;
   final bool locked;
 
-  const _NavItem(this.route, this.icon, this.label,
-      {this.locked = false});
+  const _NavItem(this.route, this.icon, this.label, {this.locked = false});
 }
-
 
 // ── Locked Screen ─────────────────────────────────────────────────────────────
 
@@ -212,13 +222,12 @@ class LockedScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final engine  = ref.read(ruleEngineServiceProvider);
+    final engine = ref.read(ruleEngineServiceProvider);
     final ruleCtx = ref.read(ruleContextProvider);
 
     RichFeature? feature;
     try {
-      feature = RichFeature.values
-          .firstWhere((f) => f.name == featureName);
+      feature = RichFeature.values.firstWhere((f) => f.name == featureName);
     } catch (_) {}
 
     final reason = feature != null
@@ -229,8 +238,7 @@ class LockedScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new,
-              size: AppSpacing.iconSm),
+          icon: const Icon(Icons.arrow_back_ios_new, size: AppSpacing.iconSm),
           onPressed: () => context.go(RouteNames.dashboard),
         ),
       ),
@@ -240,18 +248,15 @@ class LockedScreen extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
             // Lock icon
-            const Icon(Icons.lock_outline,
-                color: AppColors.warning, size: 36),
+            const Icon(Icons.lock_outline, color: AppColors.warning, size: 36),
 
             const SizedBox(height: AppSpacing.xxl),
 
             // Feature label
             Text(
               '${featureName.toUpperCase()} LOCKED',
-              style: AppTypography.label
-                  .copyWith(color: AppColors.warning),
+              style: AppTypography.label.copyWith(color: AppColors.warning),
             ),
 
             const SizedBox(height: AppSpacing.md),
@@ -265,9 +270,11 @@ class LockedScreen extends ConsumerWidget {
             RichCard(
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline,
-                      size: AppSpacing.iconSm,
-                      color: AppColors.textMuted),
+                  const Icon(
+                    Icons.info_outline,
+                    size: AppSpacing.iconSm,
+                    color: AppColors.textMuted,
+                  ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
@@ -287,21 +294,25 @@ class LockedScreen extends ConsumerWidget {
               backgroundColor: AppColors.surfaceVar,
               child: Row(
                 children: [
-                  const Icon(Icons.self_improvement_outlined,
-                      size: AppSpacing.iconSm,
-                      color: AppColors.accent),
+                  const Icon(
+                    Icons.self_improvement_outlined,
+                    size: AppSpacing.iconSm,
+                    color: AppColors.accent,
+                  ),
                   const SizedBox(width: AppSpacing.md),
-                  Text('Go to Meditation',
-                      style: AppTypography.h3
-                          .copyWith(fontSize: 13)),
+                  Text(
+                    'Go to Meditation',
+                    style: AppTypography.h3.copyWith(fontSize: 13),
+                  ),
                   const Spacer(),
-                  const Icon(Icons.arrow_forward_ios,
-                      size: AppSpacing.iconSm,
-                      color: AppColors.textMuted),
+                  const Icon(
+                    Icons.arrow_forward_ios,
+                    size: AppSpacing.iconSm,
+                    color: AppColors.textMuted,
+                  ),
                 ],
               ),
             ),
-
           ],
         ),
       ),

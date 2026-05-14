@@ -1,0 +1,5 @@
+the trading generate plan works fine but there is an issue in the lot size doesn't change based on the input or target thing (it always stays at 0.01 
+If the income is added, is not added to the current one, and if it has been added it doesn't update the daily, weekly, and monthly budget sort off
+
+so in the fincance chart line chart I don't think if it shows expenses I think it only show's the income sort off, but it has to show also expenses 
+// the morning report is kinder of not telling the truth, things like yesterday I do they keep appear it seems like it not update or somthing only one message and it has to be that smart

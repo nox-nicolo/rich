@@ -65,6 +65,8 @@ class NotificationService {
       'writing': '/writing',
       'work': '/work',
       'life': '/life',
+      'dashboard': '/',
+      'mentor': '/mentor',
     };
 
     final route = routes[payload];

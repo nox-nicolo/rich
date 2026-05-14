@@ -20,7 +20,7 @@ class FinanceTrendChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final series = _buildSeries();
-    final all = series.first;
+    final net = series.firstWhere((s) => s.label == 'Net');
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.cardPad),
@@ -38,10 +38,10 @@ class FinanceTrendChart extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('BALANCE TREND', style: AppTypography.label),
+                    Text('CASH FLOW TREND', style: AppTypography.label),
                     const SizedBox(height: 3),
                     Text(
-                      'Last 30 days across all accounts',
+                      'Last 30 days: income, expenses, and net',
                       style: AppTypography.caption.copyWith(
                         color: AppColors.textMuted,
                       ),
@@ -53,7 +53,7 @@ class FinanceTrendChart extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _fmt(all.points.last.value),
+                    _fmt(net.points.last.value),
                     style: AppTypography.mono.copyWith(
                       color: AppColors.textPrimary,
                       fontSize: 13,
@@ -61,9 +61,9 @@ class FinanceTrendChart extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    _deltaLabel(all),
+                    'NET 30D',
                     style: AppTypography.caption.copyWith(
-                      color: all.points.last.value >= all.points.first.value
+                      color: net.points.last.value >= 0
                           ? AppColors.success
                           : AppColors.warning,
                       fontSize: 10,
@@ -99,49 +99,17 @@ class FinanceTrendChart extends StatelessWidget {
     ).subtract(const Duration(days: 29));
     final days = List.generate(30, (i) => start.add(Duration(days: i)));
 
-    final totalCurrent = accounts
-        .where((a) => a.isActive)
-        .fold<double>(0, (sum, a) => sum + a.currentBalance);
-
-    double categoryCurrent(FinanceCategory category) => accounts
-        .where((a) => a.isActive && a.category == category)
-        .fold<double>(0, (sum, a) => sum + a.currentBalance);
-
-    final specs = [
+    final specs = const [
+      _SeriesSpec(label: 'Net', color: AppColors.accent, kind: _SeriesKind.net),
       _SeriesSpec(
-        label: 'All',
-        color: AppColors.accent,
-        currentBalance: totalCurrent,
-      ),
-      _SeriesSpec(
-        label: FinanceCategory.general.label,
-        color: const Color(0xFF5DADE2),
-        category: FinanceCategory.general,
-        currentBalance: categoryCurrent(FinanceCategory.general),
-      ),
-      _SeriesSpec(
-        label: FinanceCategory.investing.label,
-        color: const Color(0xFFE67E22),
-        category: FinanceCategory.investing,
-        currentBalance: categoryCurrent(FinanceCategory.investing),
-      ),
-      _SeriesSpec(
-        label: FinanceCategory.saving.label,
+        label: 'Income',
         color: AppColors.success,
-        category: FinanceCategory.saving,
-        currentBalance: categoryCurrent(FinanceCategory.saving),
+        kind: _SeriesKind.income,
       ),
       _SeriesSpec(
-        label: FinanceCategory.emergency.label,
-        color: const Color(0xFFFF5C5C),
-        category: FinanceCategory.emergency,
-        currentBalance: categoryCurrent(FinanceCategory.emergency),
-      ),
-      _SeriesSpec(
-        label: FinanceCategory.travel.label,
-        color: const Color(0xFFAF7AC5),
-        category: FinanceCategory.travel,
-        currentBalance: categoryCurrent(FinanceCategory.travel),
+        label: 'Expenses',
+        color: Color(0xFFFF5C5C),
+        kind: _SeriesKind.expense,
       ),
     ];
 
@@ -150,41 +118,48 @@ class FinanceTrendChart extends StatelessWidget {
         final endOfDay = DateTime(day.year, day.month, day.day, 23, 59, 59);
         return _TrendPoint(
           date: day,
-          value: _balanceAtEndOfDay(spec, endOfDay),
+          value: _flowThroughEndOfDay(spec.kind, start, endOfDay),
         );
       }).toList();
       return _TrendSeries(label: spec.label, color: spec.color, points: points);
     }).toList();
   }
 
-  double _balanceAtEndOfDay(_SeriesSpec spec, DateTime endOfDay) {
-    var balance = spec.currentBalance;
+  double _flowThroughEndOfDay(
+    _SeriesKind kind,
+    DateTime start,
+    DateTime endOfDay,
+  ) {
+    var income = 0.0;
+    var expense = 0.0;
 
     for (final tx in transactions) {
-      if (!tx.transactionDate.isAfter(endOfDay)) continue;
-      if (spec.category != null && tx.category != spec.category) continue;
-
+      if (tx.transactionDate.isBefore(start) ||
+          tx.transactionDate.isAfter(endOfDay)) {
+        continue;
+      }
       switch (tx.type) {
         case TransactionType.income:
-        case TransactionType.transferIn:
-          balance -= tx.amount;
+          income += tx.amount;
           break;
         case TransactionType.expense:
-        case TransactionType.transferOut:
-          balance += tx.amount;
+          expense += tx.amount;
           break;
+        case TransactionType.transferIn:
+        case TransactionType.transferOut:
         case TransactionType.adjustment:
           break;
       }
     }
 
-    return balance;
-  }
-
-  String _deltaLabel(_TrendSeries series) {
-    final delta = series.points.last.value - series.points.first.value;
-    final prefix = delta >= 0 ? '+' : '-';
-    return '$prefix${_fmt(delta.abs())} 30D';
+    switch (kind) {
+      case _SeriesKind.income:
+        return income;
+      case _SeriesKind.expense:
+        return -expense;
+      case _SeriesKind.net:
+        return income - expense;
+    }
   }
 
   static String _fmt(double value) {
@@ -292,7 +267,7 @@ class _FinanceTrendPainter extends CustomPainter {
         path,
         Paint()
           ..color = item.color
-          ..strokeWidth = item.label == 'All' ? 2.3 : 1.8
+          ..strokeWidth = item.label == 'Net' ? 2.3 : 1.8
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
           ..strokeJoin = StrokeJoin.round,
@@ -320,16 +295,16 @@ class _FinanceTrendPainter extends CustomPainter {
 class _SeriesSpec {
   final String label;
   final Color color;
-  final FinanceCategory? category;
-  final double currentBalance;
+  final _SeriesKind kind;
 
   const _SeriesSpec({
     required this.label,
     required this.color,
-    this.category,
-    required this.currentBalance,
+    required this.kind,
   });
 }
+
+enum _SeriesKind { income, expense, net }
 
 class _TrendSeries {
   final String label;

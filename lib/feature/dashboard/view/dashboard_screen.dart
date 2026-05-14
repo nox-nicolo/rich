@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/services/accountability_service.dart';
 import '../../../providers/providers.dart';
 import '../viewmodel/dashboard_viewmodel.dart';
 import 'widget/command_header_widget.dart';
@@ -17,6 +18,7 @@ import 'widget/pillar_grid_widget.dart';
 import 'widget/lock_status_widget.dart';
 import 'widget/finance_dashboard_card.dart';
 import 'widget/daily_wisdom_card.dart';
+import 'widget/accountability_red_flags_widget.dart';
 import '../../milestones/view/widgets/milestone_dashboard_card.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -35,6 +37,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     // Reload routine + next action from Hive on every visit
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(dashboardViewModelProvider.notifier).reload();
+      AccountabilityService.runDueChecks();
     });
   }
 
@@ -48,12 +51,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.read(dashboardViewModelProvider.notifier).reload();
+      AccountabilityService.runDueChecks();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final state      = ref.watch(dashboardViewModelProvider);
+    final state = ref.watch(dashboardViewModelProvider);
     final latestNews = ref.watch(latestNewsProvider);
 
     if (state.isLoading) {
@@ -84,77 +88,76 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
+                // ── Header ──────────────────────────────────────────────────
+                const SliverToBoxAdapter(child: CommandHeaderWidget()),
 
-            // ── Header ──────────────────────────────────────────────────
-            const SliverToBoxAdapter(
-              child: CommandHeaderWidget(),
-            ),
-
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-              ),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-
-                  const SizedBox(height: AppSpacing.md),
-
-                  // ── Score + Mental Readiness ─────────────────────────
-                  DisciplineScoreWidget(
-                    score:     state.disciplineScore,
-                    readiness: state.mentalReadiness,
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
                   ),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      const SizedBox(height: AppSpacing.md),
 
-                  const SizedBox(height: AppSpacing.lg),
+                      // ── Score + Mental Readiness ─────────────────────────
+                      DisciplineScoreWidget(
+                        score: state.disciplineScore,
+                        readiness: state.mentalReadiness,
+                      ),
 
-                  // ── Next Action ──────────────────────────────────────
-                  if (state.nextRequiredAction != null)
-                    NextActionWidget(
-                      action: state.nextRequiredAction!,
-                      route:  state.nextActionRoute,
-                    ),
+                      const SizedBox(height: AppSpacing.lg),
 
-                  const SizedBox(height: AppSpacing.lg),
+                      // ── Next Action ──────────────────────────────────────
+                      if (state.nextRequiredAction != null)
+                        NextActionWidget(
+                          action: state.nextRequiredAction!,
+                          route: state.nextActionRoute,
+                        ),
 
-                  // ── High Impact News Flash ───────────────────────────
-                  if (latestNews != null &&
-                      latestNews.isHighImpact) ...[
-                    NewsFlashWidget(news: latestNews),
-                    const SizedBox(height: AppSpacing.lg),
-                  ],
+                      const SizedBox(height: AppSpacing.lg),
 
-                  // ── Routine Progress ─────────────────────────────────
-                  RoutineProgressWidget(state: state),
+                      // ── High Impact News Flash ───────────────────────────
+                      if (latestNews != null && latestNews.isHighImpact) ...[
+                        NewsFlashWidget(news: latestNews),
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
 
-                  const SizedBox(height: AppSpacing.xl),
+                      // ── Routine Progress ─────────────────────────────────
+                      RoutineProgressWidget(state: state),
 
-                  // ── Daily Wisdom ─────────────────────────────────────
-                  const DailyWisdomCard(),
+                      const SizedBox(height: AppSpacing.xl),
 
-                  const SizedBox(height: AppSpacing.xl),
+                      const AccountabilityRedFlagsWidget(),
 
-                  // ── Pillar Grid ──────────────────────────────────────
-                  const PillarGridWidget(),
+                      const SizedBox(height: AppSpacing.xl),
 
-                  const SizedBox(height: AppSpacing.xl),
+                      // ── Daily Wisdom ─────────────────────────────────────
+                      const DailyWisdomCard(),
 
-                  // ── Lock Status ──────────────────────────────────────
-                  const LockStatusWidget(),
+                      const SizedBox(height: AppSpacing.xl),
 
-                  const SizedBox(height: AppSpacing.xl),
+                      // ── Pillar Grid ──────────────────────────────────────
+                      const PillarGridWidget(),
 
-                  // ── Finance ──────────────────────────────────────────
-                  const FinanceDashboardCard(),
+                      const SizedBox(height: AppSpacing.xl),
 
-                  const SizedBox(height: AppSpacing.xl),
+                      // ── Lock Status ──────────────────────────────────────
+                      const LockStatusWidget(),
 
-                  // ── Milestones (6-month + yearly goals) ──────────────
-                  const MilestoneDashboardCard(),
+                      const SizedBox(height: AppSpacing.xl),
 
-                  const SizedBox(height: AppSpacing.x3l),
-                ]),
-              ),
-            ),
+                      // ── Finance ──────────────────────────────────────────
+                      const FinanceDashboardCard(),
+
+                      const SizedBox(height: AppSpacing.xl),
+
+                      // ── Milestones (6-month + yearly goals) ──────────────
+                      const MilestoneDashboardCard(),
+
+                      const SizedBox(height: AppSpacing.x3l),
+                    ]),
+                  ),
+                ),
               ],
             ),
           ),
@@ -211,22 +214,22 @@ class _GlowingBackgroundState extends State<_GlowingBackground>
             children: [
               // Top-left — soft white glow (the "sun")
               Positioned(
-                top:  -200 + math.sin(t) * 30,
+                top: -200 + math.sin(t) * 30,
                 left: -140 + math.cos(t) * 20,
                 child: const _BlurBlob(
-                  color:   Color(0xFFFFFFFF),
-                  size:    480,
+                  color: Color(0xFFFFFFFF),
+                  size: 480,
                   opacity: 0.05,
                 ),
               ),
 
               // Right side, mid-screen — cool blue
               Positioned(
-                top:   size.height * 0.32 + math.cos(t * 0.85) * 40,
+                top: size.height * 0.32 + math.cos(t * 0.85) * 40,
                 right: -180 + math.sin(t * 0.7) * 30,
                 child: const _BlurBlob(
-                  color:   Color(0xFF3498DB),
-                  size:    420,
+                  color: Color(0xFF3498DB),
+                  size: 420,
                   opacity: 0.05,
                 ),
               ),
@@ -234,10 +237,10 @@ class _GlowingBackgroundState extends State<_GlowingBackground>
               // Bottom-left — warm purple
               Positioned(
                 bottom: -200 + math.sin(t * 0.55 + math.pi / 3) * 35,
-                left:   -120 + math.cos(t * 0.9) * 25,
+                left: -120 + math.cos(t * 0.9) * 25,
                 child: const _BlurBlob(
-                  color:   Color(0xFF9B59B6),
-                  size:    400,
+                  color: Color(0xFF9B59B6),
+                  size: 400,
                   opacity: 0.045,
                 ),
               ),
@@ -250,7 +253,7 @@ class _GlowingBackgroundState extends State<_GlowingBackground>
 }
 
 class _BlurBlob extends StatelessWidget {
-  final Color  color;
+  final Color color;
   final double size;
   final double opacity;
 
@@ -263,7 +266,7 @@ class _BlurBlob extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width:  size,
+      width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,

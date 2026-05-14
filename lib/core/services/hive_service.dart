@@ -40,6 +40,7 @@ class HiveService {
       Hive.openBox<dynamic>(HiveBoxes.dailyRecords),
       Hive.openBox<dynamic>(HiveBoxes.monthlyReports),
       Hive.openBox<dynamic>(HiveBoxes.milestones),
+      Hive.openBox<dynamic>(HiveBoxes.aiMentor),
     ]);
 
     _initialized = true;
@@ -61,8 +62,7 @@ class HiveService {
   }
 
   /// Safe put
-  static Future<void> put(
-      String boxName, String key, dynamic value) async {
+  static Future<void> put(String boxName, String key, dynamic value) async {
     await box(boxName).put(key, value);
   }
 
