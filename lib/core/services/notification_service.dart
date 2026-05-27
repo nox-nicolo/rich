@@ -1,7 +1,9 @@
 // lib/core/services/notification_service.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -27,13 +29,59 @@ class NotificationService {
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
+    const linux = LinuxInitializationSettings(defaultActionName: 'Open RICH');
 
     await _plugin.initialize(
-      const InitializationSettings(android: android, iOS: ios),
+      const InitializationSettings(android: android, iOS: ios, linux: linux),
       onDidReceiveNotificationResponse: _onTapped,
     );
 
+    await _configureAndroidNotifications();
+    await _requestPermissions();
+
     _initialized = true;
+  }
+
+  Future<void> _configureAndroidNotifications() async {
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) return;
+
+    final alarmPattern = Int64List.fromList(const [0, 900, 250, 900]);
+    await android.createNotificationChannel(
+      AndroidNotificationChannel(
+        NotificationChannel.taskAlarm.id,
+        NotificationChannel.taskAlarm.name,
+        description: NotificationChannel.taskAlarm.description,
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        vibrationPattern: alarmPattern,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+      ),
+    );
+  }
+
+  Future<void> _requestPermissions() async {
+    final android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    await android?.requestNotificationsPermission();
+    await android?.requestExactAlarmsPermission();
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          MacOSFlutterLocalNotificationsPlugin
+        >()
+        ?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   void _onTapped(NotificationResponse response) {
@@ -106,6 +154,14 @@ class NotificationService {
           importance: channel.importance,
           priority: channel.priority,
           playSound: channel != NotificationChannel.silent,
+          enableVibration: channel != NotificationChannel.silent,
+          category: channel.androidCategory,
+          audioAttributesUsage: channel.audioAttributesUsage,
+        ),
+        linux: LinuxNotificationDetails(
+          urgency: channel.linuxUrgency,
+          suppressSound: channel == NotificationChannel.silent,
+          defaultActionName: 'Open RICH',
         ),
       ),
       payload: payload,
@@ -123,26 +179,47 @@ class NotificationService {
     String? payload,
   }) async {
     if (!_initialized) return;
+    if (defaultTargetPlatform == TargetPlatform.linux) return;
 
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          channel.id,
-          channel.name,
-          channelDescription: channel.description,
-          importance: channel.importance,
-          priority: channel.priority,
-        ),
+    final details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        channel.id,
+        channel.name,
+        channelDescription: channel.description,
+        importance: channel.importance,
+        priority: channel.priority,
+        playSound: channel != NotificationChannel.silent,
+        enableVibration: channel != NotificationChannel.silent,
+        category: channel.androidCategory,
+        audioAttributesUsage: channel.audioAttributesUsage,
       ),
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: payload,
+      linux: LinuxNotificationDetails(
+        urgency: channel.linuxUrgency,
+        defaultActionName: 'Open RICH',
+      ),
     );
+    final zonedTime = tz.TZDateTime.from(scheduledTime, tz.local);
+
+    Future<void> scheduleWith(AndroidScheduleMode mode) {
+      return _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        zonedTime,
+        details,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        androidScheduleMode: mode,
+        payload: payload,
+      );
+    }
+
+    try {
+      await scheduleWith(AndroidScheduleMode.exactAllowWhileIdle);
+    } on PlatformException catch (e) {
+      if (e.code != 'exact_alarms_not_permitted') rethrow;
+      await scheduleWith(AndroidScheduleMode.inexactAllowWhileIdle);
+    }
   }
 
   // ── Cancel ────────────────────────────────────────────────────────────────
@@ -170,7 +247,7 @@ extension NotificationChannelX on NotificationChannel {
       case NotificationChannel.reminder:
         return 'rich_reminder';
       case NotificationChannel.taskAlarm:
-        return 'rich_task_alarm';
+        return 'rich_task_alarm_v2';
       case NotificationChannel.trading:
         return 'rich_trading';
       case NotificationChannel.critical:
@@ -241,6 +318,41 @@ extension NotificationChannelX on NotificationChannel {
         return Priority.high;
       default:
         return Priority.defaultPriority;
+    }
+  }
+
+  AndroidNotificationCategory? get androidCategory {
+    switch (this) {
+      case NotificationChannel.taskAlarm:
+      case NotificationChannel.critical:
+        return AndroidNotificationCategory.alarm;
+      default:
+        return null;
+    }
+  }
+
+  AudioAttributesUsage get audioAttributesUsage {
+    switch (this) {
+      case NotificationChannel.taskAlarm:
+      case NotificationChannel.critical:
+        return AudioAttributesUsage.alarm;
+      default:
+        return AudioAttributesUsage.notification;
+    }
+  }
+
+  LinuxNotificationUrgency get linuxUrgency {
+    switch (this) {
+      case NotificationChannel.taskAlarm:
+      case NotificationChannel.critical:
+        return LinuxNotificationUrgency.critical;
+      case NotificationChannel.trading:
+        return LinuxNotificationUrgency.normal;
+      case NotificationChannel.silent:
+        return LinuxNotificationUrgency.low;
+      case NotificationChannel.general:
+      case NotificationChannel.reminder:
+        return LinuxNotificationUrgency.normal;
     }
   }
 }

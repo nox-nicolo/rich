@@ -85,7 +85,7 @@ dependencies:
   crypto: ^3.0.3
   local_auth: ^2.3.0
   wakelock_plus: ^1.5.2
-  audioplayers: ^6.6.0
+  supabase_flutter: ^2.12.4
 
 dev_dependencies:
   flutter_test:

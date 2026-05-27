@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as image_lib;
-import 'package:path_provider/path_provider.dart';
+import '../../../core/services/app_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -320,8 +320,7 @@ class _WriteTabState extends ConsumerState<_WriteTab> {
 
     try {
       final file = File(decodedPath);
-      final directory = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${directory.path}/writing_images');
+      final imageDir = await AppStorageService.writingImagesDirectory();
       final isAppImage = file.path.startsWith(imageDir.path);
       if (isAppImage && await file.exists()) await file.delete();
     } catch (_) {
@@ -350,9 +349,7 @@ class _WriteTabState extends ConsumerState<_WriteTab> {
             )
           : decoded;
 
-      final directory = await getApplicationDocumentsDirectory();
-      final imageDir = Directory('${directory.path}/writing_images');
-      if (!await imageDir.exists()) await imageDir.create(recursive: true);
+      final imageDir = await AppStorageService.writingImagesDirectory();
 
       final safeName = file.name
           .split('.')

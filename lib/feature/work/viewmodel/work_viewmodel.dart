@@ -270,6 +270,48 @@ class WorkViewModel extends StateNotifier<WorkState> {
     await _scheduleTaskNotification(task);
   }
 
+  Future<void> updateTask({
+    required String id,
+    required String title,
+    String? description,
+    required TaskPriority priority,
+    required DateTime scheduledStart,
+    required DateTime scheduledEnd,
+  }) async {
+    final index = state.todayTasks.indexWhere((t) => t.id == id);
+    if (index == -1) return;
+
+    final current = state.todayTasks[index];
+    final activeDay = DateTime(
+      scheduledStart.year,
+      scheduledStart.month,
+      scheduledStart.day,
+    );
+    final updatedTask = TaskModel(
+      id: current.id,
+      title: title,
+      description: description,
+      priority: priority,
+      status: current.isCompleted ? current.status : TaskStatus.pending,
+      createdAt: current.createdAt,
+      scheduledFor: activeDay,
+      carriedOverCount: current.carriedOverCount,
+      completedAt: current.completedAt,
+      dueDate: current.dueDate,
+      scheduledStart: scheduledStart,
+      scheduledEnd: scheduledEnd,
+      actualStart: current.isCompleted ? current.actualStart : null,
+      blockedReason: current.isCompleted ? current.blockedReason : null,
+      tags: current.tags,
+    );
+
+    final updated = [...state.todayTasks]..[index] = updatedTask;
+    state = state.copyWith(todayTasks: _sortTasks(updated));
+    await _repo.saveTask(updatedTask);
+    await _cancelTaskNotifications(current);
+    await _scheduleTaskNotification(updatedTask);
+  }
+
   TaskModel? taskById(String id) {
     for (final t in state.todayTasks) {
       if (t.id == id) return t;
@@ -279,6 +321,10 @@ class WorkViewModel extends StateNotifier<WorkState> {
 
   Future<void> markTaskStarted(String id) async {
     final prior = state.todayTasks.firstWhere((t) => t.id == id);
+    final now = DateTime.now();
+    if (prior.scheduledStart != null && prior.scheduledStart!.isAfter(now)) {
+      return;
+    }
     if (prior.actualStart != null || prior.isCompleted) {
       await _cancelTaskOpenNotifications(prior);
       await _scheduleTaskEndNotification(prior);
@@ -286,10 +332,7 @@ class WorkViewModel extends StateNotifier<WorkState> {
     }
     final updated = state.todayTasks.map((t) {
       if (t.id != id) return t;
-      return t.copyWith(
-        actualStart: DateTime.now(),
-        status: TaskStatus.inProgress,
-      );
+      return t.copyWith(actualStart: now, status: TaskStatus.inProgress);
     }).toList();
     final task = updated.firstWhere((t) => t.id == id);
     state = state.copyWith(todayTasks: updated);

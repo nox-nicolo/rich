@@ -13,10 +13,12 @@ import 'core/services/accountability_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/rich_widget_service.dart';
 import 'core/services/daily_reset_service.dart';
+import 'core/sync/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/tracking/tracking_service.dart';
 import 'core/tracking/tracking_salvage.dart';
+import 'feature/finance/service/finance_sync_service.dart';
 import 'providers/news_provider.dart';
 import 'feature/betting/viewmodel/betting_viewmodel.dart';
 import 'feature/betting/viewmodel/sport_news_viewmodel.dart';
@@ -31,7 +33,7 @@ import 'feature/work/viewmodel/work_viewmodel.dart';
 // Global navigator key — used by NotificationService to route on tap
 final navigatorKey = GlobalKey<NavigatorState>();
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   // google_fonts tries to fetch TTFs from fonts.gstatic.com the first time
@@ -43,38 +45,120 @@ void main() async {
 
   // Timezone MUST be initialised before any notification scheduling
   tz.initializeTimeZones();
-  tzl.setLocalLocation(tzl.getLocation('Africa/Dar_es_Salaam'));
+  _setDeviceOffsetTimezone();
 
-  // Only the truly blocking bits run before runApp: Hive (needed by providers
-  // at first build) and notification plugin init (cheap). Scheduling the 17
-  // daily reminders is deferred so it doesn't keep the main thread busy long
-  // enough for Android's ANR watchdog to fire SIGQUIT at startup.
+  runApp(const ProviderScope(child: _RichBootstrap()));
+}
+
+void _setDeviceOffsetTimezone() {
+  final now = DateTime.now();
+  final offset = now.timeZoneOffset;
+  final sign = offset.isNegative ? '-' : '+';
+  final abs = offset.abs();
+  final hours = abs.inHours.toString().padLeft(2, '0');
+  final minutes = (abs.inMinutes % 60).toString().padLeft(2, '0');
+  final abbreviation = '${now.timeZoneName}$sign$hours:$minutes';
+
+  tzl.setLocalLocation(
+    tzl.Location('Device/$abbreviation', const [tzl.minTime], const [0], [
+      tzl.TimeZone(
+        offset.inMilliseconds,
+        isDst: false,
+        abbreviation: abbreviation,
+      ),
+    ]),
+  );
+}
+
+Future<void> _bootstrapApp() async {
   await HiveService.init();
+  await SupabaseService.instance.init();
   // New calendar day = clean slate. Routines, gate, locks, mind, discipline
   // all reset to zero before any provider builds and reads stale values.
   await DailyResetService.runIfNewDay();
   await NotificationService.instance.init(navigatorKey: navigatorKey);
   await AccountabilityService.runDueChecks();
+}
 
-  runApp(const ProviderScope(child: RichApp()));
+Future<void> _runDeferredStartupTasks() async {
+  try {
+    await _scheduleDailyReminders();
+  } catch (_) {}
+  try {
+    await AccountabilityService.scheduleNotifications();
+    await AccountabilityService.runDueChecks();
+  } catch (_) {}
+  try {
+    await FinanceSyncService.instance.sync();
+  } catch (_) {}
+  try {
+    await TrackingSalvage.runIfNeeded();
+  } catch (_) {}
+  try {
+    await TrackingService.runRetention();
+  } catch (_) {}
+}
 
-  // Fire-and-forget — runs on the event loop after the first frame is up.
-  // Wrapped so any platform-channel failure never crashes the app.
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    try {
-      await _scheduleDailyReminders();
-    } catch (_) {}
-    try {
-      await AccountabilityService.scheduleNotifications();
-      await AccountabilityService.runDueChecks();
-    } catch (_) {}
-    try {
-      await TrackingSalvage.runIfNeeded();
-    } catch (_) {}
-    try {
-      await TrackingService.runRetention();
-    } catch (_) {}
-  });
+class _RichBootstrap extends StatefulWidget {
+  const _RichBootstrap();
+
+  @override
+  State<_RichBootstrap> createState() => _RichBootstrapState();
+}
+
+class _RichBootstrapState extends State<_RichBootstrap> {
+  late final Future<void> _future = _bootstrapApp();
+  bool _deferredQueued = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          if (!_deferredQueued) {
+            _deferredQueued = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              unawaited(_runDeferredStartupTasks());
+            });
+          }
+          return const RichApp();
+        }
+
+        return MaterialApp(
+          title: 'Rich',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: Center(
+              child: snapshot.hasError
+                  ? _BootstrapError(error: snapshot.error)
+                  : const CircularProgressIndicator(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BootstrapError extends StatelessWidget {
+  const _BootstrapError({required this.error});
+
+  final Object? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Text(
+        'RICH could not start.\n$error',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+    );
+  }
 }
 
 /// Daily schedule:

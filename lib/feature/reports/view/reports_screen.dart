@@ -56,16 +56,23 @@ class _ReportsScreenState extends State<ReportsScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('REPORTS',
-            style: AppTypography.label
-                .copyWith(color: AppColors.textPrimary, letterSpacing: 3)),
+        title: Text(
+          'REPORTS',
+          style: AppTypography.label.copyWith(
+            color: AppColors.textPrimary,
+            letterSpacing: 3,
+          ),
+        ),
         backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, size: AppSpacing.iconSm,
-                color: AppColors.textMuted),
+            icon: const Icon(
+              Icons.refresh,
+              size: AppSpacing.iconSm,
+              color: AppColors.textMuted,
+            ),
             onPressed: () async {
               await TrackingService.runRetention();
               _refresh();
@@ -122,7 +129,11 @@ class _DailyTab extends StatelessWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 80),
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        80,
+      ),
       physics: const BouncingScrollPhysics(),
       itemCount: dateKeys.length,
       itemBuilder: (_, i) {
@@ -164,8 +175,7 @@ class _DayCardState extends State<_DayCard> {
   @override
   Widget build(BuildContext context) {
     final date = DateTime.tryParse(widget.dateKey);
-    final displayDate =
-        date != null ? _formatDate(date) : widget.dateKey;
+    final displayDate = date != null ? _formatDate(date) : widget.dateKey;
     final totalFeatures = widget.records.length;
 
     return Container(
@@ -195,24 +205,35 @@ class _DayCardState extends State<_DayCard> {
                     Container(
                       margin: const EdgeInsets.only(right: 8),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.success.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                            color: AppColors.success.withValues(alpha: 0.3),
-                            width: 0.5),
+                          color: AppColors.success.withValues(alpha: 0.3),
+                          width: 0.5,
+                        ),
                       ),
-                      child: Text('TODAY',
-                          style: AppTypography.chip.copyWith(
-                              color: AppColors.success, fontSize: 9)),
+                      child: Text(
+                        'TODAY',
+                        style: AppTypography.chip.copyWith(
+                          color: AppColors.success,
+                          fontSize: 9,
+                        ),
+                      ),
                     ),
-                  Text(displayDate,
-                      style: AppTypography.h3.copyWith(fontSize: 13)),
+                  Text(
+                    displayDate,
+                    style: AppTypography.h3.copyWith(fontSize: 13),
+                  ),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceVar,
                       borderRadius: BorderRadius.circular(4),
@@ -220,8 +241,9 @@ class _DayCardState extends State<_DayCard> {
                     child: Text(
                       '$totalFeatures',
                       style: AppTypography.mono.copyWith(
-                          fontSize: 10,
-                          color: AppColors.textSecondary),
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                   const Spacer(),
@@ -245,8 +267,11 @@ class _DayCardState extends State<_DayCard> {
                   AnimatedRotation(
                     turns: _expanded ? 0.25 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.chevron_right,
-                        size: 18, color: AppColors.textMuted),
+                    child: const Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -257,8 +282,7 @@ class _DayCardState extends State<_DayCard> {
           //    so a flaky AnimatedSize/hit-test on a real device can't hide
           //    the content after a tap.
           if (_expanded) ...[
-            const Divider(
-                height: 1, color: AppColors.divider, thickness: 0.5),
+            const Divider(height: 1, color: AppColors.divider, thickness: 0.5),
             const SizedBox(height: 6),
             ...List.generate(widget.records.length, (i) {
               final r = widget.records[i];
@@ -277,8 +301,19 @@ class _DayCardState extends State<_DayCard> {
 
   String _formatDate(DateTime d) {
     const months = [
-      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[d.weekday - 1]}, ${months[d.month]} ${d.day}';
@@ -306,11 +341,14 @@ class _MonthlyTab extends StatelessWidget {
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 80),
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        80,
+      ),
       physics: const BouncingScrollPhysics(),
       itemCount: sorted.length,
-      itemBuilder: (_, i) =>
-          _MonthCard(report: sorted[i], isCurrent: i == 0),
+      itemBuilder: (_, i) => _MonthCard(report: sorted[i], isCurrent: i == 0),
     );
   }
 }
@@ -361,28 +399,39 @@ class _MonthCardState extends State<_MonthCard> {
                 color: AppColors.surfaceVar,
                 borderRadius: _expanded
                     ? const BorderRadius.vertical(
-                        top: Radius.circular(AppSpacing.radiusLg))
+                        top: Radius.circular(AppSpacing.radiusLg),
+                      )
                     : BorderRadius.circular(AppSpacing.radiusLg),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_month_outlined,
-                      size: 16, color: AppColors.accent),
+                  const Icon(
+                    Icons.calendar_month_outlined,
+                    size: 16,
+                    color: AppColors.accent,
+                  ),
                   const SizedBox(width: 8),
-                  Text(displayMonth,
-                      style: AppTypography.h3.copyWith(fontSize: 14)),
+                  Text(
+                    displayMonth,
+                    style: AppTypography.h3.copyWith(fontSize: 14),
+                  ),
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.background,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text('$featureCount',
-                        style: AppTypography.mono.copyWith(
-                            fontSize: 10,
-                            color: AppColors.textSecondary)),
+                    child: Text(
+                      '$featureCount',
+                      style: AppTypography.mono.copyWith(
+                        fontSize: 10,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                   ),
                   const Spacer(),
                   ...widget.report.byFeature.entries.take(5).map((e) {
@@ -406,8 +455,11 @@ class _MonthCardState extends State<_MonthCard> {
                   AnimatedRotation(
                     turns: _expanded ? 0.25 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.chevron_right,
-                        size: 18, color: AppColors.textMuted),
+                    child: const Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ],
               ),
@@ -419,16 +471,17 @@ class _MonthCardState extends State<_MonthCard> {
             if (widget.report.byFeature.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(14),
-                child: Text('No data for this month.',
-                    style: AppTypography.caption
-                        .copyWith(color: AppColors.textMuted)),
+                child: Text(
+                  'No data for this month.',
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                  ),
+                ),
               )
             else ...[
               const SizedBox(height: 6),
-              ...List.generate(
-                  widget.report.byFeature.entries.length, (i) {
-                final e =
-                    widget.report.byFeature.entries.elementAt(i);
+              ...List.generate(widget.report.byFeature.entries.length, (i) {
+                final e = widget.report.byFeature.entries.elementAt(i);
                 final feature = TrackingFeatureX.fromKey(e.key);
                 if (feature == null) {
                   return const SizedBox.shrink();
@@ -436,8 +489,7 @@ class _MonthCardState extends State<_MonthCard> {
                 return _FeatureSection(
                   feature: feature,
                   data: e.value,
-                  isLast: i ==
-                      widget.report.byFeature.entries.length - 1,
+                  isLast: i == widget.report.byFeature.entries.length - 1,
                 );
               }),
               const SizedBox(height: 6),
@@ -450,8 +502,19 @@ class _MonthCardState extends State<_MonthCard> {
 
   String _formatYearMonth(String ym) {
     const months = [
-      '', 'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      '',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     final parts = ym.split('-');
     if (parts.length != 2) return ym;
@@ -486,7 +549,7 @@ class _FeatureSection extends StatelessWidget {
     // meetingItems, etc.). Scalars render as labelled number rows; lists
     // render as a separate "what you actually did" section below them.
     final scalarEntries = <MapEntry<String, dynamic>>[];
-    final listEntries   = <MapEntry<String, dynamic>>[];
+    final listEntries = <MapEntry<String, dynamic>>[];
     for (final e in data.entries) {
       if (e.value is List) {
         listEntries.add(e);
@@ -501,8 +564,7 @@ class _FeatureSection extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surfaceVar.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(
-              color: color.withValues(alpha: 0.15), width: 0.5),
+          border: Border.all(color: color.withValues(alpha: 0.15), width: 0.5),
         ),
         margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
         padding: const EdgeInsets.all(12),
@@ -533,47 +595,53 @@ class _FeatureSection extends StatelessWidget {
                 const Spacer(),
                 Text(
                   '${scalarEntries.length} stat${scalarEntries.length == 1 ? '' : 's'}',
-                  style: AppTypography.caption
-                      .copyWith(color: AppColors.textMuted, fontSize: 10),
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textMuted,
+                    fontSize: 10,
+                  ),
                 ),
               ],
             ),
             if (scalarEntries.isNotEmpty) const SizedBox(height: 10),
             // Scalar stat rows
-            ...scalarEntries.map((e) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _humanizeKey(e.key),
-                          style: AppTypography.body.copyWith(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _fmtValue(e.key, e.value),
-                        style: AppTypography.mono.copyWith(
+            ...scalarEntries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _humanizeKey(e.key),
+                        style: AppTypography.body.copyWith(
                           fontSize: 12,
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                    ],
-                  ),
-                )),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _fmtValue(e.key, e.value),
+                      style: AppTypography.mono.copyWith(
+                        fontSize: 12,
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
             // Item-list sections (taskItems, meetingItems, …)
-            ...listEntries.map((e) => _ItemList(
-                  sectionKey: e.key,
-                  items: List<dynamic>.from(e.value as List),
-                  color: color,
-                )),
+            ...listEntries.map(
+              (e) => _ItemList(
+                sectionKey: e.key,
+                items: List<dynamic>.from(e.value as List),
+                color: color,
+              ),
+            ),
           ],
         ),
       ),
@@ -600,8 +668,10 @@ class _ItemList extends StatelessWidget {
 
   String get _label {
     switch (sectionKey) {
-      case 'taskItems':    return 'Tasks done';
-      case 'meetingItems': return 'Meetings';
+      case 'taskItems':
+        return 'Tasks done';
+      case 'meetingItems':
+        return 'Meetings';
       default:
         return _humanizeKey(sectionKey);
     }
@@ -609,9 +679,12 @@ class _ItemList extends StatelessWidget {
 
   IconData get _icon {
     switch (sectionKey) {
-      case 'taskItems':    return Icons.check_circle_outline;
-      case 'meetingItems': return Icons.groups_outlined;
-      default:             return Icons.label_important_outline;
+      case 'taskItems':
+        return Icons.check_circle_outline;
+      case 'meetingItems':
+        return Icons.groups_outlined;
+      default:
+        return Icons.label_important_outline;
     }
   }
 
@@ -654,13 +727,14 @@ class _ItemList extends StatelessWidget {
             if (raw is! Map) return const SizedBox.shrink();
             final m = Map<String, dynamic>.from(raw);
             return _ItemTile(
-              index:    i + 1,
-              title:    (m['title'] as String?) ?? '',
-              detail:   ((m['description'] ?? m['agenda'] ?? '') as String?) ?? '',
-              outcome:  (m['outcome'] as String?) ?? '',
-              minutes:  (m['minutes'] as num?)?.toInt(),
+              index: i + 1,
+              title: (m['title'] as String?) ?? '',
+              detail:
+                  ((m['description'] ?? m['agenda'] ?? '') as String?) ?? '',
+              outcome: (m['outcome'] as String?) ?? '',
+              minutes: (m['minutes'] as num?)?.toInt(),
               priority: m['priority'] as String?,
-              color:    color,
+              color: color,
             );
           }),
         ],
@@ -670,13 +744,13 @@ class _ItemList extends StatelessWidget {
 }
 
 class _ItemTile extends StatelessWidget {
-  final int     index;
-  final String  title;
-  final String  detail;
-  final String  outcome;
-  final int?    minutes;
+  final int index;
+  final String title;
+  final String detail;
+  final String outcome;
+  final int? minutes;
   final String? priority;
-  final Color   color;
+  final Color color;
 
   const _ItemTile({
     required this.index,
@@ -692,13 +766,11 @@ class _ItemTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(
-          horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.background.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(
-            color: color.withValues(alpha: 0.10), width: 0.5),
+        border: Border.all(color: color.withValues(alpha: 0.10), width: 0.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -731,7 +803,9 @@ class _ItemTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 6, vertical: 2),
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(4),
@@ -767,8 +841,11 @@ class _ItemTile extends StatelessWidget {
               padding: const EdgeInsets.only(left: 22),
               child: Row(
                 children: [
-                  Icon(Icons.flag_outlined,
-                      size: 10, color: color.withValues(alpha: 0.7)),
+                  Icon(
+                    Icons.flag_outlined,
+                    size: 10,
+                    color: color.withValues(alpha: 0.7),
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
@@ -837,9 +914,11 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 12),
           Text(title, style: AppTypography.body),
           const SizedBox(height: 4),
-          Text(subtitle,
-              style: AppTypography.caption,
-              textAlign: TextAlign.center),
+          Text(
+            subtitle,
+            style: AppTypography.caption,
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -876,51 +955,50 @@ class _EmptyState extends StatelessWidget {
 // recorded feature still looks reasonable without code changes here.
 String _humanizeKey(String key) {
   const overrides = <String, String>{
-    'tasksCompleted':         'Tasks completed',
-    'tasksScheduled':         'Tasks scheduled',
-    'tasksDone':              'Tasks done',
-    'tasksPending':           'Tasks carried over',
-    'tasksBlocked':           'Tasks blocked',
-    'tasksCancelled':         'Tasks cancelled',
-    'sessions':               'Focus sessions',
-    'deepSessions':           'Deep work sessions',
-    'totalSeconds':           'Time focused',
-    'taskPlannedSeconds':     'Planned task time',
-    'taskActualSeconds':      'Actual task time',
-    'taskOverrunSeconds':     'Overrun time',
-    'meetings':               'Meetings',
-    'meetingActualMinutes':   'Meeting duration',
-    'meetingPlannedMinutes':  'Planned meeting',
-    'logs':                   'Transactions',
-    'income':                 'Income',
-    'expense':                'Expenses',
-    'pnl':                    'Net P&L',
-    'kept':                   'Kept aside',
-    'wins':                   'Wins',
-    'losses':                 'Losses',
-    'stepsSettled':           'Steps settled',
-    'pages':                  'Pages read',
-    'pagesRead':              'Pages read',
-    'highlights':             'Highlights',
-    'words':                  'Words written',
-    'wordsWritten':           'Words written',
-    'minutes':                'Minutes',
+    'tasksCompleted': 'Tasks completed',
+    'tasksScheduled': 'Tasks scheduled',
+    'tasksDone': 'Tasks done',
+    'tasksPending': 'Tasks carried over',
+    'tasksBlocked': 'Tasks blocked',
+    'tasksCancelled': 'Tasks cancelled',
+    'sessions': 'Focus sessions',
+    'deepSessions': 'Deep work sessions',
+    'totalSeconds': 'Time focused',
+    'taskPlannedSeconds': 'Planned task time',
+    'taskActualSeconds': 'Actual task time',
+    'taskOverrunSeconds': 'Overrun time',
+    'meetings': 'Meetings',
+    'meetingActualMinutes': 'Meeting duration',
+    'meetingPlannedMinutes': 'Planned meeting',
+    'logs': 'Transactions',
+    'income': 'Income',
+    'expense': 'Expenses',
+    'pnl': 'Net P&L',
+    'kept': 'Kept aside',
+    'wins': 'Wins',
+    'losses': 'Losses',
+    'stepsSettled': 'Steps settled',
+    'pages': 'Pages read',
+    'pagesRead': 'Pages read',
+    'highlights': 'Highlights',
+    'words': 'Words written',
+    'wordsWritten': 'Words written',
+    'updates': 'Writing updates',
+    'minutes': 'Minutes',
   };
   if (overrides.containsKey(key)) return overrides[key]!;
   return key
       .replaceAllMapped(
-          RegExp(r'([a-z])([A-Z])'),
-          (m) => '${m[1]} ${m[2]!.toLowerCase()}')
-      .replaceFirstMapped(
-          RegExp(r'^([a-z])'), (m) => m[1]!.toUpperCase());
+        RegExp(r'([a-z])([A-Z])'),
+        (m) => '${m[1]} ${m[2]!.toLowerCase()}',
+      )
+      .replaceFirstMapped(RegExp(r'^([a-z])'), (m) => m[1]!.toUpperCase());
 }
 
 // Format a recorded value based on its key. Times become durations,
 // money keys get thousands separators, everything else falls through.
 String _fmtValue(String key, dynamic raw) {
-  final n = raw is num
-      ? raw.toDouble()
-      : double.tryParse('$raw') ?? 0.0;
+  final n = raw is num ? raw.toDouble() : double.tryParse('$raw') ?? 0.0;
   final lower = key.toLowerCase();
 
   if (lower.contains('seconds')) {

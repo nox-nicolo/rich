@@ -1,9 +1,13 @@
 // lib/feature/finance/viewmodel/finance_viewmodel.dart
 
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/sync/sync_repository.dart';
 import '../model/finance_models.dart';
 import '../repository/finance_repository.dart';
+import '../service/finance_sync_service.dart';
 import '../../../core/tracking/tracking_feature.dart';
 import '../../../core/tracking/tracking_service.dart';
 
@@ -315,9 +319,17 @@ extension PeriodSummaryCopyWith on PeriodSummary {
 
 class FinanceViewModel extends StateNotifier<FinanceState> {
   final FinanceRepository _repo;
+  final SyncRepository _syncRepo = SyncRepository();
+  Timer? _syncDebounce;
 
   FinanceViewModel(this._repo) : super(FinanceState.initial()) {
     _load();
+  }
+
+  @override
+  void dispose() {
+    _syncDebounce?.cancel();
+    super.dispose();
   }
 
   // ── Load & Bootstrap ──────────────────────────────────────────────────────
@@ -372,7 +384,7 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     }
   }
 
-  void _recompute() {
+  void _recompute({bool queueSync = true}) {
     final accounts = _repo.loadAccounts();
     final allocations = _repo.loadAllocations();
     final transactions = _repo.loadAllTransactions();
@@ -396,6 +408,18 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
       yearSummary: year,
       recentTransactions: recent,
     );
+
+    if (queueSync) _queueFinanceSync();
+  }
+
+  void _queueFinanceSync() {
+    _syncDebounce?.cancel();
+    _syncDebounce = Timer(const Duration(milliseconds: 900), () async {
+      final result = await FinanceSyncService.instance.sync();
+      if (mounted && result.changedLocalData) {
+        _recompute(queueSync: false);
+      }
+    });
   }
 
   // ── Period / Category Selection ───────────────────────────────────────────
@@ -732,6 +756,10 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
 
   Future<void> deleteAllocation(String id) async {
     await _repo.deleteAllocation(id);
+    await _syncRepo.saveTombstone(
+      entityType: FinanceRepository.allocationEntityType,
+      entityId: id,
+    );
     await _saveAudit(
       entityId: id,
       entityType: 'BudgetAllocation',
@@ -819,6 +847,10 @@ class FinanceViewModel extends StateNotifier<FinanceState> {
     String? reason,
   }) async {
     await _repo.deleteTransaction(tx.id);
+    await _syncRepo.saveTombstone(
+      entityType: FinanceRepository.transactionEntityType,
+      entityId: tx.id,
+    );
 
     // Reverse the effect on account balance
     final account = _repo.loadAccountByCategory(tx.category);

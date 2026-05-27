@@ -6,6 +6,7 @@ import '../repository/dashboard_repository.dart';
 import '../../../providers/providers.dart';
 import '../../../core/services/accountability_service.dart';
 import '../../../core/tracking/tracking_feature.dart';
+import '../../../core/tracking/tracking_service.dart';
 import '../../meditation/viewmodel/meditation_viewmodel.dart';
 import '../../work/viewmodel/work_viewmodel.dart';
 import '../../trading/viewmodel/trading_viewmodel.dart';
@@ -13,6 +14,7 @@ import '../../betting/viewmodel/betting_viewmodel.dart';
 import '../../reading/viewmodel/reading_viewmodel.dart';
 import '../../finance/viewmodel/finance_viewmodel.dart';
 import '../../life/viewmodel/life_viewmodel.dart';
+import '../../writing/viewmodel/writing_viewmodel.dart';
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
@@ -33,6 +35,7 @@ class DashboardViewModel extends StateNotifier<DashboardState> {
     _ref.listen(readingViewModelProvider, (_, __) => refreshRoutine());
     _ref.listen(financeViewModelProvider, (_, __) => refreshRoutine());
     _ref.listen(lifeViewModelProvider, (_, __) => refreshRoutine());
+    _ref.listen(writingViewModelProvider, (_, __) => refreshRoutine());
   }
 
   // ── Load ──────────────────────────────────────────────────────────────────
@@ -263,6 +266,7 @@ class DashboardViewModel extends StateNotifier<DashboardState> {
     final tradingState = _ref.read(tradingViewModelProvider);
     final bettingState = _ref.read(bettingViewModelProvider);
     final readingState = _ref.read(readingViewModelProvider);
+    final writingState = _ref.read(writingViewModelProvider);
     final redFlags = AccountabilityService.yesterdayRedFlags();
 
     return PillarDefinitions.all.map((p) {
@@ -362,10 +366,30 @@ class DashboardViewModel extends StateNotifier<DashboardState> {
 
         case RichFeature.writing:
           if (locked) return p.copyWith(status: PillarStatus.locked);
-          final notes = readingState.allNotes.length;
+          final writingRecord = TrackingService.readDay(
+            TrackingFeature.writing,
+            DateTime.now(),
+          );
+          final writingData = writingRecord?.data ?? const {};
+          final words = writingState.todayWordCount;
+          final sessions = writingState.todaySessions.length;
+          final updates = writingData['updates'] is num
+              ? (writingData['updates'] as num).toInt()
+              : 0;
+          final seconds = writingData['totalSeconds'] is num
+              ? (writingData['totalSeconds'] as num).toInt()
+              : 0;
+          final wroteToday = words > 0 || updates > 0 || seconds > 0;
+          final activity = sessions > 0
+              ? '$sessions session(s)'
+              : 'continued session';
           return p.copyWith(
-            status: PillarStatus.idle,
-            statusDetail: '$notes notes in vault',
+            status: wroteToday ? PillarStatus.active : PillarStatus.idle,
+            statusDetail: wroteToday
+                ? words > 0
+                      ? '$words words today · $activity'
+                      : 'Writing logged today · $activity'
+                : 'No writing today',
           );
 
         case RichFeature.life:
@@ -441,6 +465,7 @@ final pillarSummariesProvider = Provider<List<PillarSummary>>((ref) {
   ref.watch(bettingViewModelProvider);
   ref.watch(readingViewModelProvider);
   ref.watch(financeViewModelProvider);
+  ref.watch(writingViewModelProvider);
   // Refresh of routine progress is handled by DashboardViewModel itself
   // via _ref.listen on the module providers — no cross-provider mutation
   // needed during this provider's build.

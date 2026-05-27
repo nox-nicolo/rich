@@ -39,13 +39,13 @@ class WritingState {
   });
 
   factory WritingState.initial() => const WritingState(
-    allSessions:     [],
-    todayWordCount:  0,
+    allSessions: [],
+    todayWordCount: 0,
     weeklyWordCount: 0,
     monthlyWordCount: 0,
-    streak:          0,
-    activeTab:       'WRITE',
-    isLoading:       true,
+    streak: 0,
+    activeTab: 'WRITE',
+    isLoading: true,
   );
 
   /// The session currently being edited, or null for a fresh entry.
@@ -91,19 +91,18 @@ class WritingState {
     String? editingSessionId,
     bool clearEditing = false,
   }) => WritingState(
-    allSessions:      allSessions     ?? this.allSessions,
-    todayWordCount:   todayWordCount  ?? this.todayWordCount,
-    weeklyWordCount:  weeklyWordCount ?? this.weeklyWordCount,
+    allSessions: allSessions ?? this.allSessions,
+    todayWordCount: todayWordCount ?? this.todayWordCount,
+    weeklyWordCount: weeklyWordCount ?? this.weeklyWordCount,
     monthlyWordCount: monthlyWordCount ?? this.monthlyWordCount,
-    streak:           streak          ?? this.streak,
-    activeTab:        activeTab       ?? this.activeTab,
-    isLoading:        isLoading       ?? this.isLoading,
+    streak: streak ?? this.streak,
+    activeTab: activeTab ?? this.activeTab,
+    isLoading: isLoading ?? this.isLoading,
     editingSessionId: clearEditing
         ? null
         : (editingSessionId ?? this.editingSessionId),
   );
 }
-
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
@@ -120,17 +119,25 @@ class WritingViewModel extends StateNotifier<WritingState> {
 
   void _load() {
     final sessions = _repo.loadAllSessions();
-    final todayWC  = sessions
+    final sessionTodayWC = sessions
         .where((s) => s.isToday)
         .fold(0, (sum, s) => sum + s.wordCount);
+    final todayRecord = TrackingService.readDay(
+      TrackingFeature.writing,
+      DateTime.now(),
+    );
+    final trackedTodayWC = todayRecord?.data['words'];
+    final todayWC = trackedTodayWC is num && trackedTodayWC > 0
+        ? trackedTodayWC.toInt()
+        : sessionTodayWC;
 
     state = state.copyWith(
-      allSessions:      sessions,
-      todayWordCount:   todayWC,
-      weeklyWordCount:  _repo.weeklyWordCount(),
+      allSessions: sessions,
+      todayWordCount: todayWC,
+      weeklyWordCount: _repo.weeklyWordCount(),
       monthlyWordCount: _repo.monthlyWordCount(),
-      streak:           _repo.loadStreak(),
-      isLoading:        false,
+      streak: _repo.loadStreak(),
+      isLoading: false,
     );
   }
 
@@ -193,44 +200,38 @@ class WritingViewModel extends StateNotifier<WritingState> {
     if (wc == 0) return;
 
     final session = WritingSession(
-      id:              const Uuid().v4(),
-      title:           title,
-      content:         content,
-      wordCount:       wc,
+      id: const Uuid().v4(),
+      title: title,
+      content: content,
+      wordCount: wc,
       durationSeconds: _elapsedSeconds,
-      category:        category,
-      moodBefore:      moodBefore,
-      moodAfter:       moodAfter,
-      purpose:         purpose,
-      reflection:      reflection,
-      createdAt:       DateTime.now(),
+      category: category,
+      moodBefore: moodBefore,
+      moodAfter: moodAfter,
+      purpose: purpose,
+      reflection: reflection,
+      createdAt: DateTime.now(),
     );
 
     await _repo.saveSession(session);
     await _repo.updateStreak();
 
     await TrackingService.record(TrackingFeature.writing, {
-      'entries':      1,
-      'words':        session.wordCount,
+      'entries': 1,
+      'words': session.wordCount,
       'totalSeconds': session.durationSeconds,
     });
 
     // Notify: writing session saved
     await NotificationService.instance.show(
-      id:      60,
-      title:   'Writing Session Saved',
-      body:    '${session.wordCount} words logged.',
+      id: 60,
+      title: 'Writing Session Saved',
+      body: '${session.wordCount} words logged.',
       channel: NotificationChannel.general,
       payload: 'writing',
     );
 
-    // Auto-mark Journaling routine item
-    final dashRepo = DashboardRepository();
-    final progress = dashRepo.loadRoutineProgress();
-    if (progress['Journaling'] == false) {
-      progress['Journaling'] = true;
-      await dashRepo.saveRoutineProgress(progress);
-    }
+    await _markJournalingRoutineComplete();
 
     _load();
     _elapsedSeconds = 0;
@@ -269,29 +270,34 @@ class WritingViewModel extends StateNotifier<WritingState> {
     if (existing == null) return;
 
     final updated = WritingSession(
-      id:              existing.id,
-      title:           title,
-      content:         content,
-      wordCount:       wc,
+      id: existing.id,
+      title: title,
+      content: content,
+      wordCount: wc,
       durationSeconds: existing.durationSeconds + _elapsedSeconds,
-      category:        category,
-      moodBefore:      moodBefore,
-      moodAfter:       moodAfter,
-      purpose:         purpose,
-      reflection:      reflection,
-      createdAt:       existing.createdAt,
-      updatedAt:       DateTime.now(),
+      category: category,
+      moodBefore: moodBefore,
+      moodAfter: moodAfter,
+      purpose: purpose,
+      reflection: reflection,
+      createdAt: existing.createdAt,
+      updatedAt: DateTime.now(),
     );
 
     await _repo.saveSession(updated);
 
-    final wordsDelta =
-        updated.wordCount > existing.wordCount ? updated.wordCount - existing.wordCount : 0;
-    if (wordsDelta > 0 || _elapsedSeconds > 0) {
+    final wordsDelta = updated.wordCount > existing.wordCount
+        ? updated.wordCount - existing.wordCount
+        : 0;
+    final wroteToday = wordsDelta > 0 || _elapsedSeconds > 0;
+    if (wroteToday) {
       await TrackingService.record(TrackingFeature.writing, {
-        'words':        wordsDelta,
+        'updates': 1,
+        'words': wordsDelta,
         'totalSeconds': _elapsedSeconds,
       });
+      await _repo.updateStreak();
+      await _markJournalingRoutineComplete();
     }
 
     // Clear the editing handle so the next fresh "SAVE" creates a new
@@ -318,13 +324,21 @@ class WritingViewModel extends StateNotifier<WritingState> {
     return trimmed.split(RegExp(r'\s+')).length;
   }
 
+  Future<void> _markJournalingRoutineComplete() async {
+    final dashRepo = DashboardRepository();
+    final progress = dashRepo.loadRoutineProgress();
+    if (progress['Journaling'] == false) {
+      progress['Journaling'] = true;
+      await dashRepo.saveRoutineProgress(progress);
+    }
+  }
+
   @override
   void dispose() {
     _sessionTimer?.cancel();
     super.dispose();
   }
 }
-
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
@@ -334,5 +348,5 @@ final writingRepositoryProvider = Provider<WritingRepository>(
 
 final writingViewModelProvider =
     StateNotifierProvider<WritingViewModel, WritingState>(
-  (ref) => WritingViewModel(ref.read(writingRepositoryProvider)),
-);
+      (ref) => WritingViewModel(ref.read(writingRepositoryProvider)),
+    );

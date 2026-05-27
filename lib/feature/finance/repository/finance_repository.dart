@@ -3,17 +3,23 @@ import '../../../core/constants/hive_boxes.dart';
 import '../model/finance_models.dart';
 
 class FinanceRepository {
-  static const String _accountsKey     = 'finance_accounts';
-  static const String _allocationsKey  = 'finance_allocations';
+  static const String _accountsKey = 'finance_accounts';
+  static const String _allocationsKey = 'finance_allocations';
   static const String _transactionsKey = 'finance_transactions';
-  static const String _auditTrailKey   = 'finance_audit_trail';
+  static const String _auditTrailKey = 'finance_audit_trail';
+
+  static const String accountEntityType = 'finance_account';
+  static const String allocationEntityType = 'finance_allocation';
+  static const String transactionEntityType = 'finance_transaction';
+  static const String auditEntryEntityType = 'finance_audit_entry';
 
   // ── Accounts ──────────────────────────────────────────────────────────────
 
   Future<void> saveAccount(FinanceAccount account) async {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> existing =
-        List.from(box.get(_accountsKey, defaultValue: []) as List);
+    final List<dynamic> existing = List.from(
+      box.get(_accountsKey, defaultValue: []) as List,
+    );
 
     final index = existing.indexWhere((e) => (e as Map)['id'] == account.id);
     if (index >= 0) {
@@ -27,8 +33,9 @@ class FinanceRepository {
 
   List<FinanceAccount> loadAccounts() {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> raw =
-        List.from(box.get(_accountsKey, defaultValue: []) as List);
+    final List<dynamic> raw = List.from(
+      box.get(_accountsKey, defaultValue: []) as List,
+    );
 
     return raw
         .map((e) => FinanceAccount.fromMap(Map<String, dynamic>.from(e as Map)))
@@ -55,22 +62,25 @@ class FinanceRepository {
 
   Future<void> deleteAccount(String id) async {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> existing =
-        List.from(box.get(_accountsKey, defaultValue: []) as List);
+    final List<dynamic> existing = List.from(
+      box.get(_accountsKey, defaultValue: []) as List,
+    );
 
     existing.removeWhere((e) => (e as Map)['id'] == id);
     await box.put(_accountsKey, existing);
   }
 
+  Future<void> removeLocalAccount(String id) => deleteAccount(id);
+
   // ── Budget Allocations ────────────────────────────────────────────────────
 
   Future<void> saveAllocation(BudgetAllocation allocation) async {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> existing =
-        List.from(box.get(_allocationsKey, defaultValue: []) as List);
+    final List<dynamic> existing = List.from(
+      box.get(_allocationsKey, defaultValue: []) as List,
+    );
 
-    final index =
-        existing.indexWhere((e) => (e as Map)['id'] == allocation.id);
+    final index = existing.indexWhere((e) => (e as Map)['id'] == allocation.id);
     if (index >= 0) {
       existing[index] = allocation.toMap();
     } else {
@@ -82,11 +92,14 @@ class FinanceRepository {
 
   List<BudgetAllocation> loadAllocations() {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> raw =
-        List.from(box.get(_allocationsKey, defaultValue: []) as List);
+    final List<dynamic> raw = List.from(
+      box.get(_allocationsKey, defaultValue: []) as List,
+    );
 
     return raw
-        .map((e) => BudgetAllocation.fromMap(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) => BudgetAllocation.fromMap(Map<String, dynamic>.from(e as Map)),
+        )
         .toList()
       ..sort((a, b) => b.startDate.compareTo(a.startDate));
   }
@@ -99,32 +112,38 @@ class FinanceRepository {
     FinanceCategory category,
     FinancePeriod period,
   ) {
-    final items = loadAllocations()
-        .where((a) => a.category == category && a.period == period)
-        .toList()
-      ..sort((a, b) => b.startDate.compareTo(a.startDate));
+    final items =
+        loadAllocations()
+            .where((a) => a.category == category && a.period == period)
+            .toList()
+          ..sort((a, b) => b.startDate.compareTo(a.startDate));
 
     return items.isNotEmpty ? items.first : null;
   }
 
   Future<void> deleteAllocation(String id) async {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> existing =
-        List.from(box.get(_allocationsKey, defaultValue: []) as List);
+    final List<dynamic> existing = List.from(
+      box.get(_allocationsKey, defaultValue: []) as List,
+    );
 
     existing.removeWhere((e) => (e as Map)['id'] == id);
     await box.put(_allocationsKey, existing);
   }
 
+  Future<void> removeLocalAllocation(String id) => deleteAllocation(id);
+
   // ── Transactions ──────────────────────────────────────────────────────────
 
   Future<void> saveTransaction(FinanceTransaction transaction) async {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> existing =
-        List.from(box.get(_transactionsKey, defaultValue: []) as List);
+    final List<dynamic> existing = List.from(
+      box.get(_transactionsKey, defaultValue: []) as List,
+    );
 
-    final index =
-        existing.indexWhere((e) => (e as Map)['id'] == transaction.id);
+    final index = existing.indexWhere(
+      (e) => (e as Map)['id'] == transaction.id,
+    );
     if (index >= 0) {
       existing[index] = transaction.toMap();
     } else {
@@ -136,12 +155,15 @@ class FinanceRepository {
 
   List<FinanceTransaction> loadAllTransactions() {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> raw =
-        List.from(box.get(_transactionsKey, defaultValue: []) as List);
+    final List<dynamic> raw = List.from(
+      box.get(_transactionsKey, defaultValue: []) as List,
+    );
 
     return raw
-        .map((e) =>
-            FinanceTransaction.fromMap(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) =>
+              FinanceTransaction.fromMap(Map<String, dynamic>.from(e as Map)),
+        )
         .toList()
       ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
   }
@@ -151,16 +173,14 @@ class FinanceRepository {
     return items.isNotEmpty ? items.first : null;
   }
 
-  List<FinanceTransaction> loadTransactionsByCategory(FinanceCategory category) {
-    return loadAllTransactions()
-        .where((t) => t.category == category)
-        .toList();
+  List<FinanceTransaction> loadTransactionsByCategory(
+    FinanceCategory category,
+  ) {
+    return loadAllTransactions().where((t) => t.category == category).toList();
   }
 
   List<FinanceTransaction> loadTransactionsByType(TransactionType type) {
-    return loadAllTransactions()
-        .where((t) => t.type == type)
-        .toList();
+    return loadAllTransactions().where((t) => t.type == type).toList();
   }
 
   List<FinanceTransaction> loadTransactionsInRange({
@@ -168,26 +188,33 @@ class FinanceRepository {
     required DateTime end,
   }) {
     return loadAllTransactions()
-        .where((t) =>
-            !t.transactionDate.isBefore(start) &&
-            !t.transactionDate.isAfter(end))
+        .where(
+          (t) =>
+              !t.transactionDate.isBefore(start) &&
+              !t.transactionDate.isAfter(end),
+        )
         .toList();
   }
 
   List<FinanceTransaction> loadTodayTransactions() {
     final now = DateTime.now();
     return loadAllTransactions()
-        .where((t) =>
-            t.transactionDate.year == now.year &&
-            t.transactionDate.month == now.month &&
-            t.transactionDate.day == now.day)
+        .where(
+          (t) =>
+              t.transactionDate.year == now.year &&
+              t.transactionDate.month == now.month &&
+              t.transactionDate.day == now.day,
+        )
         .toList();
   }
 
   List<FinanceTransaction> loadThisWeekTransactions() {
     final now = DateTime.now();
-    final startOfWeek = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1));
+    final startOfWeek = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
     final endOfWeek = startOfWeek.add(
       const Duration(days: 6, hours: 23, minutes: 59, seconds: 59),
     );
@@ -198,9 +225,11 @@ class FinanceRepository {
   List<FinanceTransaction> loadThisMonthTransactions() {
     final now = DateTime.now();
     return loadAllTransactions()
-        .where((t) =>
-            t.transactionDate.year == now.year &&
-            t.transactionDate.month == now.month)
+        .where(
+          (t) =>
+              t.transactionDate.year == now.year &&
+              t.transactionDate.month == now.month,
+        )
         .toList();
   }
 
@@ -214,21 +243,30 @@ class FinanceRepository {
 
   Future<void> deleteTransaction(String id) async {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> existing =
-        List.from(box.get(_transactionsKey, defaultValue: []) as List);
+    final List<dynamic> existing = List.from(
+      box.get(_transactionsKey, defaultValue: []) as List,
+    );
 
     existing.removeWhere((e) => (e as Map)['id'] == id);
     await box.put(_transactionsKey, existing);
   }
 
+  Future<void> removeLocalTransaction(String id) => deleteTransaction(id);
+
   // ── Audit Trail ───────────────────────────────────────────────────────────
 
   Future<void> saveAuditEntry(AuditTrailEntry entry) async {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> existing =
-        List.from(box.get(_auditTrailKey, defaultValue: []) as List);
+    final List<dynamic> existing = List.from(
+      box.get(_auditTrailKey, defaultValue: []) as List,
+    );
 
-    existing.add(entry.toMap());
+    final index = existing.indexWhere((e) => (e as Map)['id'] == entry.id);
+    if (index >= 0) {
+      existing[index] = entry.toMap();
+    } else {
+      existing.add(entry.toMap());
+    }
 
     // keep recent history manageable but still useful
     if (existing.length > 2000) {
@@ -240,11 +278,14 @@ class FinanceRepository {
 
   List<AuditTrailEntry> loadAuditTrail() {
     final box = HiveService.box(HiveBoxes.financeLogs);
-    final List<dynamic> raw =
-        List.from(box.get(_auditTrailKey, defaultValue: []) as List);
+    final List<dynamic> raw = List.from(
+      box.get(_auditTrailKey, defaultValue: []) as List,
+    );
 
     return raw
-        .map((e) => AuditTrailEntry.fromMap(Map<String, dynamic>.from(e as Map)))
+        .map(
+          (e) => AuditTrailEntry.fromMap(Map<String, dynamic>.from(e as Map)),
+        )
         .toList()
       ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
@@ -256,6 +297,16 @@ class FinanceRepository {
   Future<void> clearAuditTrail() async {
     final box = HiveService.box(HiveBoxes.financeLogs);
     await box.put(_auditTrailKey, <dynamic>[]);
+  }
+
+  Future<void> removeLocalAuditEntry(String id) async {
+    final box = HiveService.box(HiveBoxes.financeLogs);
+    final List<dynamic> existing = List.from(
+      box.get(_auditTrailKey, defaultValue: []) as List,
+    );
+
+    existing.removeWhere((e) => (e as Map)['id'] == id);
+    await box.put(_auditTrailKey, existing);
   }
 
   // ── Reports / Helpers ─────────────────────────────────────────────────────
@@ -275,8 +326,11 @@ class FinanceRepository {
 
   PeriodSummary loadThisWeekSummary() {
     final now = DateTime.now();
-    final start = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: now.weekday - 1));
+    final start = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday - 1));
     final end = start.add(
       const Duration(days: 6, hours: 23, minutes: 59, seconds: 59),
     );
@@ -346,8 +400,11 @@ class FinanceRepository {
     String id = 'weekly_statement',
     double openingBalance = 0,
   }) {
-    final start = DateTime(weekDate.year, weekDate.month, weekDate.day)
-        .subtract(Duration(days: weekDate.weekday - 1));
+    final start = DateTime(
+      weekDate.year,
+      weekDate.month,
+      weekDate.day,
+    ).subtract(Duration(days: weekDate.weekday - 1));
     final end = start.add(
       const Duration(days: 6, hours: 23, minutes: 59, seconds: 59),
     );

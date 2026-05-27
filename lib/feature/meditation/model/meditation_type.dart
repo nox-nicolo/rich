@@ -71,4 +71,23 @@ extension MeditationTypeX on MeditationType {
     final m = defaultDurationSeconds ~/ 60;
     return '${m}m';
   }
+
+  double get frequencyHz {
+    switch (this) {
+      case MeditationType.prayer:
+        return 432.0;
+      case MeditationType.breathing:
+        return 528.0;
+      case MeditationType.stillness:
+        return 174.0;
+      case MeditationType.visualization:
+        return 852.0;
+      case MeditationType.reflection:
+        return 396.0;
+      case MeditationType.reset:
+        return 285.0;
+    }
+  }
+
+  String get frequencyLabel => '${frequencyHz.toStringAsFixed(0)} Hz';
 }

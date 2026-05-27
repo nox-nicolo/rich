@@ -9,11 +9,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:path_provider/path_provider.dart';
+import '../../../core/services/app_storage_service.dart';
 
 class ScreenshotService {
-  static const _channel =
-      MethodChannel('com.rich.app/screenshot');
+  static const _channel = MethodChannel('com.rich.app/screenshot');
 
   // ── Full Screen Capture (Android MediaProjection) ─────────────────────────
 
@@ -22,8 +21,7 @@ class ScreenshotService {
   /// Requires MediaProjection permission — request before calling.
   Future<String?> captureScreen() async {
     try {
-      final path =
-          await _channel.invokeMethod<String>('captureScreen');
+      final path = await _channel.invokeMethod<String>('captureScreen');
       return path;
     } on PlatformException {
       return null;
@@ -41,13 +39,12 @@ class ScreenshotService {
   ///   final file = await screenshotService.captureWidget(_key);
   Future<File?> captureWidget(GlobalKey key) async {
     try {
-      final boundary = key.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) return null;
 
       final image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return null;
 
       final bytes = byteData.buffer.asUint8List();
@@ -68,13 +65,7 @@ class ScreenshotService {
   }
 
   Future<File> _saveToFile(List<int> bytes) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final capturesDir =
-        Directory('${dir.path}/rich_captures');
-
-    if (!await capturesDir.exists()) {
-      await capturesDir.create(recursive: true);
-    }
+    final capturesDir = await AppStorageService.capturesDirectory();
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final file = File('${capturesDir.path}/$timestamp.png');
@@ -95,9 +86,7 @@ class ScreenshotService {
 
   Future<void> clearAllCaptures() async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final capturesDir =
-          Directory('${dir.path}/rich_captures');
+      final capturesDir = await AppStorageService.capturesDirectory();
       if (await capturesDir.exists()) {
         await capturesDir.delete(recursive: true);
       }

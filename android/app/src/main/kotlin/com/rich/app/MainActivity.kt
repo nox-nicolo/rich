@@ -1,6 +1,9 @@
 package com.rich.app
 
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioTrack
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -13,15 +16,18 @@ class MainActivity : FlutterFragmentActivity() {
     private val overlayChannel    = "com.rich.app/overlay"
     private val screenshotChannel = "com.rich.app/screenshot"
     private val widgetChannel     = "com.rich.app/widget"
+    private val frequencyChannel  = "com.rich.app/frequency"
     private val requestOverlayCode = 1001
 
     private var overlayPendingResult: MethodChannel.Result? = null
+    private var toneTrack: AudioTrack? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         setupOverlayChannel(flutterEngine)
         setupScreenshotChannel(flutterEngine)
         setupWidgetChannel(flutterEngine)
+        setupFrequencyChannel(flutterEngine)
     }
 
     // ── Overlay Channel ───────────────────────────────────────────────────────
@@ -154,5 +160,91 @@ class MainActivity : FlutterFragmentActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    // ── Meditation Frequency Channel ───────────────────────────────────────
+
+    private fun setupFrequencyChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            frequencyChannel
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "play" -> {
+                    val frequencyHz = call.argument<Double>("frequencyHz") ?: 432.0
+                    val volume = call.argument<Double>("volume") ?: 0.14
+                    playFrequency(frequencyHz, volume)
+                    result.success(null)
+                }
+
+                "stop" -> {
+                    stopFrequency()
+                    result.success(null)
+                }
+
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    private fun playFrequency(frequencyHz: Double, volume: Double) {
+        stopFrequency()
+
+        val sampleRate = 44100
+        val seconds = 4
+        val sampleCount = sampleRate * seconds
+        val amplitude = (Short.MAX_VALUE * volume.coerceIn(0.0, 1.0)).toInt()
+        val buffer = ShortArray(sampleCount)
+
+        for (i in buffer.indices) {
+            val angle = 2.0 * Math.PI * i * frequencyHz / sampleRate
+            buffer[i] = (Math.sin(angle) * amplitude).toInt().toShort()
+        }
+
+        val minBufferSize = AudioTrack.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_OUT_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+        val bufferBytes = maxOf(minBufferSize, buffer.size * 2)
+
+        val track = AudioTrack.Builder()
+            .setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build()
+            )
+            .setAudioFormat(
+                AudioFormat.Builder()
+                    .setSampleRate(sampleRate)
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+            )
+            .setBufferSizeInBytes(bufferBytes)
+            .setTransferMode(AudioTrack.MODE_STATIC)
+            .build()
+
+        track.write(buffer, 0, buffer.size)
+        track.setLoopPoints(0, buffer.size, -1)
+        track.play()
+        toneTrack = track
+    }
+
+    private fun stopFrequency() {
+        toneTrack?.let {
+            try {
+                it.pause()
+                it.flush()
+                it.release()
+            } catch (_: Exception) {}
+        }
+        toneTrack = null
+    }
+
+    override fun onDestroy() {
+        stopFrequency()
+        super.onDestroy()
     }
 }

@@ -1,5 +1,7 @@
 // lib/features/work/view/widgets/task_queue_widget.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,15 +12,38 @@ import '../../../../core/widgets/rich_section_header.dart';
 import '../../model/task_model.dart';
 import '../../viewmodel/work_viewmodel.dart';
 
-class TaskQueueWidget extends ConsumerWidget {
+class TaskQueueWidget extends ConsumerStatefulWidget {
   const TaskQueueWidget({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TaskQueueWidget> createState() => _TaskQueueWidgetState();
+}
+
+class _TaskQueueWidgetState extends ConsumerState<TaskQueueWidget> {
+  Timer? _clock;
+  DateTime _now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _clock = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(workViewModelProvider);
     final vm = ref.read(workViewModelProvider.notifier);
 
-    final pending = state.todayTasks.where((t) => !t.isCompleted).toList();
+    final pending = state.todayTasks.where((t) => !t.isCompleted).toList()
+      ..sort((a, b) => _taskOrderAt(a, b, _now));
     final completed = state.todayTasks.where((t) => t.isCompleted).toList();
 
     return Column(
@@ -71,7 +96,9 @@ class TaskQueueWidget extends ConsumerWidget {
                 task: task,
                 onComplete: () => vm.completeTask(task.id),
                 onDelete: () => vm.deleteTask(task.id),
-                onFocus: task.hasSchedule
+                onEdit: () => _showTaskSheet(context, vm, task: task),
+                now: _now,
+                onFocus: task.hasSchedule && !task.scheduledStart!.isAfter(_now)
                     ? () => context.go('/work/focus/${task.id}')
                     : null,
               ),
@@ -96,6 +123,8 @@ class TaskQueueWidget extends ConsumerWidget {
                   task: task,
                   onComplete: () {},
                   onDelete: () => vm.deleteTask(task.id),
+                  onEdit: () => _showTaskSheet(context, vm, task: task),
+                  now: _now,
                   onFocus: null,
                 ),
               ),
@@ -107,18 +136,33 @@ class TaskQueueWidget extends ConsumerWidget {
   }
 
   void _showAddTaskSheet(BuildContext context, WorkViewModel vm) {
+    _showTaskSheet(context, vm);
+  }
+
+  void _showTaskSheet(
+    BuildContext context,
+    WorkViewModel vm, {
+    TaskModel? task,
+  }) {
+    final isEditing = task != null;
     final titleCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
-    TaskPriority intensity = TaskPriority.medium;
+    if (task != null) {
+      titleCtrl.text = task.title;
+      notesCtrl.text = task.description ?? '';
+    }
+    TaskPriority intensity = task?.priority ?? TaskPriority.medium;
 
     final now = DateTime.now();
     TimeOfDay start = TimeOfDay(
-      hour: now.add(const Duration(minutes: 1)).hour,
-      minute: now.add(const Duration(minutes: 1)).minute,
+      hour: (task?.scheduledStart ?? now.add(const Duration(minutes: 1))).hour,
+      minute:
+          (task?.scheduledStart ?? now.add(const Duration(minutes: 1))).minute,
     );
     TimeOfDay end = TimeOfDay(
-      hour: now.add(const Duration(minutes: 31)).hour,
-      minute: now.add(const Duration(minutes: 31)).minute,
+      hour: (task?.scheduledEnd ?? now.add(const Duration(minutes: 31))).hour,
+      minute:
+          (task?.scheduledEnd ?? now.add(const Duration(minutes: 31))).minute,
     );
 
     showModalBottomSheet(
@@ -151,7 +195,10 @@ class TaskQueueWidget extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('ADD TASK', style: AppTypography.label),
+              Text(
+                isEditing ? 'EDIT TASK' : 'ADD TASK',
+                style: AppTypography.label,
+              ),
               const SizedBox(height: 12),
 
               // Title
@@ -289,15 +336,28 @@ class TaskQueueWidget extends ConsumerWidget {
                     if (!endDt.isAfter(startDt)) {
                       endDt = endDt.add(const Duration(days: 1));
                     }
-                    vm.addTask(
-                      title: titleCtrl.text.trim(),
-                      description: notesCtrl.text.trim().isEmpty
-                          ? null
-                          : notesCtrl.text.trim(),
-                      priority: intensity,
-                      scheduledStart: startDt,
-                      scheduledEnd: endDt,
-                    );
+                    final title = titleCtrl.text.trim();
+                    final description = notesCtrl.text.trim().isEmpty
+                        ? null
+                        : notesCtrl.text.trim();
+                    if (isEditing) {
+                      vm.updateTask(
+                        id: task.id,
+                        title: title,
+                        description: description,
+                        priority: intensity,
+                        scheduledStart: startDt,
+                        scheduledEnd: endDt,
+                      );
+                    } else {
+                      vm.addTask(
+                        title: title,
+                        description: description,
+                        priority: intensity,
+                        scheduledStart: startDt,
+                        scheduledEnd: endDt,
+                      );
+                    }
                     Navigator.pop(ctx);
                   },
                   style: ElevatedButton.styleFrom(
@@ -309,7 +369,7 @@ class TaskQueueWidget extends ConsumerWidget {
                     ),
                   ),
                   child: Text(
-                    'ADD TASK',
+                    isEditing ? 'SAVE CHANGES' : 'ADD TASK',
                     style: AppTypography.h3.copyWith(
                       color: AppColors.background,
                       fontSize: 13,
@@ -323,6 +383,36 @@ class TaskQueueWidget extends ConsumerWidget {
       ),
     );
   }
+}
+
+int _taskOrderAt(TaskModel a, TaskModel b, DateTime now) {
+  final aBucket = _taskTimeBucket(a, now);
+  final bBucket = _taskTimeBucket(b, now);
+  if (aBucket != bBucket) return aBucket.compareTo(bBucket);
+
+  if (a.hasSchedule && b.hasSchedule) {
+    if (aBucket == 0) {
+      return a.scheduledEnd!.compareTo(b.scheduledEnd!);
+    }
+    if (aBucket == 1) {
+      return a.scheduledStart!.compareTo(b.scheduledStart!);
+    }
+    return b.scheduledEnd!.compareTo(a.scheduledEnd!);
+  }
+
+  if (a.hasSchedule) return -1;
+  if (b.hasSchedule) return 1;
+  return a.priority.index.compareTo(b.priority.index);
+}
+
+int _taskTimeBucket(TaskModel task, DateTime now) {
+  if (task.status == TaskStatus.inProgress) return 0;
+  if (!task.hasSchedule) return 3;
+  if (!now.isBefore(task.scheduledStart!) && now.isBefore(task.scheduledEnd!)) {
+    return 0;
+  }
+  if (now.isBefore(task.scheduledStart!)) return 1;
+  return 2;
 }
 
 int _toMins(TimeOfDay t) => t.hour * 60 + t.minute;
@@ -395,20 +485,25 @@ Color _intensityColor(TaskPriority p) {
 
 class _TaskTile extends StatelessWidget {
   final TaskModel task;
+  final DateTime now;
   final VoidCallback onComplete;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
   final VoidCallback? onFocus;
 
   const _TaskTile({
     required this.task,
+    required this.now,
     required this.onComplete,
     required this.onDelete,
+    required this.onEdit,
     required this.onFocus,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = _intensityColor(task.priority);
+    final timeStatus = _timeStatus(task, now);
 
     return Container(
       decoration: BoxDecoration(
@@ -543,6 +638,15 @@ class _TaskTile extends StatelessWidget {
                         ),
                       ),
                     ],
+                    if (timeStatus != null && !task.isCompleted) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        timeStatus.label,
+                        style: AppTypography.caption.copyWith(
+                          color: timeStatus.color,
+                        ),
+                      ),
+                    ],
                     if (task.isCompleted && task.overrunMinutes != null) ...[
                       const SizedBox(height: 3),
                       Text(
@@ -623,19 +727,100 @@ class _TaskTile extends StatelessWidget {
             ),
           ],
 
-          // Delete button (44x44 tap target)
+          const SizedBox(width: 6),
           GestureDetector(
-            onTap: onDelete,
+            onTap: onEdit,
             behavior: HitTestBehavior.opaque,
             child: Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.close,
-                size: 16,
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVar,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.border, width: 0.5),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.edit_outlined,
+                    size: 15,
+                    color: AppColors.textMuted,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'EDIT',
+                    style: AppTypography.chip.copyWith(
+                      color: AppColors.textMuted,
+                      fontSize: 9,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: PopupMenuButton<_TaskMenuAction>(
+              icon: const Icon(
+                Icons.more_vert,
+                size: 18,
                 color: AppColors.textMuted,
               ),
+              color: AppColors.surfaceVar,
+              padding: EdgeInsets.zero,
+              tooltip: 'Task actions',
+              onSelected: (action) {
+                switch (action) {
+                  case _TaskMenuAction.edit:
+                    onEdit();
+                    break;
+                  case _TaskMenuAction.focus:
+                    onFocus?.call();
+                    break;
+                  case _TaskMenuAction.complete:
+                    onComplete();
+                    break;
+                  case _TaskMenuAction.delete:
+                    onDelete();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _TaskMenuAction.edit,
+                  child: _MenuRow(icon: Icons.edit_outlined, label: 'Edit'),
+                ),
+                if (!task.isCompleted && onFocus != null)
+                  PopupMenuItem(
+                    value: _TaskMenuAction.focus,
+                    child: _MenuRow(
+                      icon: Icons.play_arrow_rounded,
+                      label: task.status == TaskStatus.inProgress
+                          ? 'Open'
+                          : 'Start',
+                    ),
+                  ),
+                if (!task.isCompleted)
+                  PopupMenuItem(
+                    value: _TaskMenuAction.complete,
+                    child: _MenuRow(
+                      icon: Icons.check_circle_outline,
+                      label: 'Mark done',
+                    ),
+                  ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: _TaskMenuAction.delete,
+                  child: _MenuRow(
+                    icon: Icons.delete_outline,
+                    label: 'Delete',
+                    color: AppColors.warning,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -644,8 +829,76 @@ class _TaskTile extends StatelessWidget {
   }
 }
 
+_TaskTimeStatus? _timeStatus(TaskModel task, DateTime now) {
+  if (!task.hasSchedule) return null;
+
+  final start = task.scheduledStart!;
+  final end = task.scheduledEnd!;
+  if (now.isBefore(start)) {
+    return _TaskTimeStatus(
+      'Starts in ${_compactDuration(start.difference(now))}',
+      AppColors.textMuted,
+    );
+  }
+  if (now.isBefore(end)) {
+    return _TaskTimeStatus(
+      'Remaining ${_compactDuration(end.difference(now))}',
+      AppColors.success,
+    );
+  }
+  return _TaskTimeStatus(
+    'Over by ${_compactDuration(now.difference(end))}',
+    AppColors.warning,
+  );
+}
+
+String _compactDuration(Duration duration) {
+  final minutes = duration.inMinutes;
+  if (minutes < 1) return '${duration.inSeconds}s';
+  final hours = minutes ~/ 60;
+  final mins = minutes % 60;
+  if (hours <= 0) return '${mins}m';
+  if (mins == 0) return '${hours}h';
+  return '${hours}h ${mins}m';
+}
+
+class _TaskTimeStatus {
+  final String label;
+  final Color color;
+
+  const _TaskTimeStatus(this.label, this.color);
+}
+
 String _hhmm(DateTime dt) =>
     '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+
+enum _TaskMenuAction { edit, focus, complete, delete }
+
+class _MenuRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color? color;
+
+  const _MenuRow({required this.icon, required this.label, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = color ?? AppColors.textPrimary;
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: effectiveColor),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: AppTypography.body.copyWith(
+            color: effectiveColor,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class _EmptyState extends StatelessWidget {
   @override

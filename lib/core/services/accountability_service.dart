@@ -287,7 +287,12 @@ class AccountabilityService {
         return n('pages') <= 0 ? ['you broke reading progress.'] : [];
       case TrackingFeature.writing:
         if (record == null) return ['no writing entry was saved.'];
-        return n('entries') <= 0 ? ['you did not write.'] : [];
+        return n('entries') <= 0 &&
+                n('updates') <= 0 &&
+                n('words') <= 0 &&
+                n('totalSeconds') <= 0
+            ? ['you did not write.']
+            : [];
       case TrackingFeature.work:
         if (record == null) return ['no work execution record was saved.'];
         return n('tasksCompleted') <= 0 && n('sessions') <= 0

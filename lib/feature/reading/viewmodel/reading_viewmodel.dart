@@ -2,7 +2,6 @@
 
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:uuid/uuid.dart';
 import '../model/book_model.dart';
@@ -12,6 +11,7 @@ import '../model/vocabulary_word_model.dart';
 import '../repository/reading_repository.dart';
 import '../../dashboard/repository/dashboard_repository.dart';
 import '../../../core/services/dictionary_service.dart';
+import '../../../core/services/app_storage_service.dart';
 import '../../../core/services/vibration_service.dart';
 import '../../../core/tracking/tracking_feature.dart';
 import '../../../core/tracking/tracking_service.dart';
@@ -37,12 +37,12 @@ class ReadingState {
 
   factory ReadingState.initial() {
     return const ReadingState(
-      allBooks:     [],
+      allBooks: [],
       allHighlights: [],
-      allNotes:     [],
-      vocabulary:   [],
-      activeTab:    'BOOKS',
-      isLoading:    true,
+      allNotes: [],
+      vocabulary: [],
+      activeTab: 'BOOKS',
+      isLoading: true,
     );
   }
 
@@ -56,13 +56,13 @@ class ReadingState {
     bool? isLoading,
   }) {
     return ReadingState(
-      allBooks:      allBooks      ?? this.allBooks,
+      allBooks: allBooks ?? this.allBooks,
       allHighlights: allHighlights ?? this.allHighlights,
-      allNotes:      allNotes      ?? this.allNotes,
-      vocabulary:    vocabulary    ?? this.vocabulary,
-      activeTab:     activeTab     ?? this.activeTab,
+      allNotes: allNotes ?? this.allNotes,
+      vocabulary: vocabulary ?? this.vocabulary,
+      activeTab: activeTab ?? this.activeTab,
       selectedBookId: selectedBookId ?? this.selectedBookId,
-      isLoading:     isLoading     ?? this.isLoading,
+      isLoading: isLoading ?? this.isLoading,
     );
   }
 
@@ -85,17 +85,16 @@ class ReadingState {
         .fold(0, (sum, b) => sum + b.pagesReadToday);
   }
 
-  BookModel? get activeBook =>
-      selectedBookId != null
-          ? allBooks.firstWhere(
-              (b) => b.id == selectedBookId,
-              orElse: () => currentlyReading.isNotEmpty
-                  ? currentlyReading.first
-                  : allBooks.first,
-            )
-          : currentlyReading.isNotEmpty
+  BookModel? get activeBook => selectedBookId != null
+      ? allBooks.firstWhere(
+          (b) => b.id == selectedBookId,
+          orElse: () => currentlyReading.isNotEmpty
               ? currentlyReading.first
-              : null;
+              : allBooks.first,
+        )
+      : currentlyReading.isNotEmpty
+      ? currentlyReading.first
+      : null;
 }
 
 class ReadingViewModel extends StateNotifier<ReadingState> {
@@ -106,18 +105,18 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
   }
 
   void _load() {
-    final books      = _repo.loadAllBooks()
+    final books = _repo.loadAllBooks()
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     final highlights = _repo.loadAllHighlights();
-    final notes      = _repo.loadAllNotes();
-    final vocab      = _repo.loadAllVocab();
+    final notes = _repo.loadAllNotes();
+    final vocab = _repo.loadAllVocab();
 
     state = state.copyWith(
-      allBooks:      books,
+      allBooks: books,
       allHighlights: highlights,
-      allNotes:      notes,
-      vocabulary:    vocab,
-      isLoading:     false,
+      allNotes: notes,
+      vocabulary: vocab,
+      isLoading: false,
     );
 
     // Lazily generate missing PDF covers in the background so the shelf
@@ -134,8 +133,7 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
 
   void setTab(String tab) => state = state.copyWith(activeTab: tab);
 
-  void selectBook(String id) =>
-      state = state.copyWith(selectedBookId: id);
+  void selectBook(String id) => state = state.copyWith(selectedBookId: id);
 
   // ── Books ─────────────────────────────────────────────────────────────────
 
@@ -150,18 +148,18 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
     // New books go on wishlist if there's already an active book
     final hasActive = state.currentlyReading.isNotEmpty;
     final book = BookModel(
-      id:           const Uuid().v4(),
-      title:        title,
-      author:       author,
-      status:       hasActive ? BookStatus.wishlist : BookStatus.reading,
-      category:     category,
-      totalPages:   totalPages,
-      currentPage:  0,
-      startedAt:    DateTime.now(),
-      lastReadAt:   DateTime.now(),
+      id: const Uuid().v4(),
+      title: title,
+      author: author,
+      status: hasActive ? BookStatus.wishlist : BookStatus.reading,
+      category: category,
+      totalPages: totalPages,
+      currentPage: 0,
+      startedAt: DateTime.now(),
+      lastReadAt: DateTime.now(),
       dailyPageGoal: dailyPageGoal,
-      filePath:     filePath,
-      sortOrder:    DateTime.now().millisecondsSinceEpoch,
+      filePath: filePath,
+      sortOrder: DateTime.now().millisecondsSinceEpoch,
     );
     await _repo.saveBook(book);
     state = state.copyWith(allBooks: [...state.allBooks, book]);
@@ -171,7 +169,10 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
   /// Rearrange books within a section (same BookStatus). Rewrites every
   /// book's `sortOrder` so the global ordering reflects the new position.
   Future<void> reorderBooks(
-      BookStatus section, int oldIndex, int newIndex) async {
+    BookStatus section,
+    int oldIndex,
+    int newIndex,
+  ) async {
     if (newIndex > oldIndex) newIndex -= 1;
     final all = [...state.allBooks]
       ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
@@ -185,8 +186,7 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
         newIndex >= sectionIndices.length) {
       return;
     }
-    final sectionBooks =
-        sectionIndices.map((i) => all[i]).toList();
+    final sectionBooks = sectionIndices.map((i) => all[i]).toList();
     final moved = sectionBooks.removeAt(oldIndex);
     sectionBooks.insert(newIndex, moved);
     for (var i = 0; i < sectionIndices.length; i++) {
@@ -201,8 +201,8 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
     state = state.copyWith(allBooks: updated);
   }
 
-  /// Generate a PNG thumbnail of the PDF's first page into
-  /// `{appDocs}/covers/{bookId}.png` and persist the path on the book.
+  /// Generate a PNG thumbnail of the PDF's first page into app support storage
+  /// and persist the path on the book.
   /// Best-effort — silently swallows errors so a broken PDF doesn't
   /// derail shelf loading.
   Future<void> _ensureCover(BookModel book) async {
@@ -219,9 +219,7 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
       await page.close();
       await doc.close();
       if (img == null) return;
-      final dir = await getApplicationDocumentsDirectory();
-      final coverDir = Directory('${dir.path}/covers');
-      if (!await coverDir.exists()) await coverDir.create(recursive: true);
+      final coverDir = await AppStorageService.coversDirectory();
       final file = File('${coverDir.path}/${book.id}.png');
       await file.writeAsBytes(img.bytes);
       final updated = book.copyWith(coverPath: file.path);
@@ -248,7 +246,9 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
     if (book.status == BookStatus.wishlist ||
         book.status == BookStatus.paused) {
       final updated = book.copyWith(
-          status: BookStatus.reading, lastReadAt: DateTime.now());
+        status: BookStatus.reading,
+        lastReadAt: DateTime.now(),
+      );
       await _repo.saveBook(updated);
       state = state.copyWith(
         allBooks: state.allBooks.map((b) => b.id == id ? updated : b).toList(),
@@ -264,7 +264,7 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
     final updated = state.allBooks.map((b) {
       if (b.id != id) return b;
       return b.copyWith(
-        status:      BookStatus.completed,
+        status: BookStatus.completed,
         completedAt: DateTime.now(),
         currentPage: b.totalPages > 0 ? b.totalPages : b.currentPage,
       );
@@ -293,32 +293,33 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
       // Count forward progress toward the daily goal.
       // If this is the first update of a new day, the counter resets.
       final isNewDay = !b.readTodayAlready;
-      final forward  = safePage > b.currentPage ? safePage - b.currentPage : 0;
-      final newPagesReadToday =
-          isNewDay ? forward : b.pagesReadToday + forward;
+      final forward = safePage > b.currentPage ? safePage - b.currentPage : 0;
+      final newPagesReadToday = isNewDay ? forward : b.pagesReadToday + forward;
 
       final isComplete = b.totalPages > 0 && safePage >= b.totalPages;
 
       return b.copyWith(
-        currentPage:    safePage,
-        lastReadAt:     DateTime.now(),
+        currentPage: safePage,
+        lastReadAt: DateTime.now(),
         pagesReadToday: newPagesReadToday,
-        status:         isComplete ? BookStatus.completed : b.status,
-        completedAt:    isComplete ? DateTime.now() : b.completedAt,
+        status: isComplete ? BookStatus.completed : b.status,
+        completedAt: isComplete ? DateTime.now() : b.completedAt,
       );
     }).toList();
     final book = updated.firstWhere((b) => b.id == id);
     final prior = state.allBooks.firstWhere((b) => b.id == id);
-    final pagesDelta =
-        book.currentPage > prior.currentPage ? book.currentPage - prior.currentPage : 0;
-    final justCompleted = book.status == BookStatus.completed &&
+    final pagesDelta = book.currentPage > prior.currentPage
+        ? book.currentPage - prior.currentPage
+        : 0;
+    final justCompleted =
+        book.status == BookStatus.completed &&
         prior.status != BookStatus.completed;
     await _repo.saveBook(book);
     state = state.copyWith(allBooks: updated);
 
     if (pagesDelta > 0 || justCompleted) {
       await TrackingService.record(TrackingFeature.reading, {
-        'pages':          pagesDelta,
+        'pages': pagesDelta,
         'booksCompleted': justCompleted ? 1 : 0,
       });
     }
@@ -377,33 +378,31 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
     String? personalNote,
   }) async {
     final highlight = HighlightModel(
-      id:           const Uuid().v4(),
-      bookId:       bookId,
-      bookTitle:    bookTitle,
-      content:      content,
-      type:         type,
-      pageNumber:   pageNumber,
-      savedAt:      DateTime.now(),
+      id: const Uuid().v4(),
+      bookId: bookId,
+      bookTitle: bookTitle,
+      content: content,
+      type: type,
+      pageNumber: pageNumber,
+      savedAt: DateTime.now(),
       personalNote: personalNote,
     );
     await _repo.saveHighlight(highlight);
-    state = state.copyWith(
-      allHighlights: [...state.allHighlights, highlight],
-    );
+    state = state.copyWith(allHighlights: [...state.allHighlights, highlight]);
 
-    await TrackingService.record(TrackingFeature.reading, {
-      'highlights': 1,
-    });
+    await TrackingService.record(TrackingFeature.reading, {'highlights': 1});
 
     // Auto-side-effects based on annotation type
     if (type == HighlightType.vocab) {
       // Pull the first real word out of the selection and strip punctuation.
       // If the user highlighted a phrase we still only lookup the first word
       // because dictionaryapi.dev doesn't handle multi-word entries.
-      final tokens = content.split(RegExp(r'\s+')).where((t) => t.trim().isNotEmpty);
-      if (tokens.isEmpty) return; 
+      final tokens = content
+          .split(RegExp(r'\s+'))
+          .where((t) => t.trim().isNotEmpty);
+      if (tokens.isEmpty) return;
       final firstToken = tokens.first;
-      
+
       final word = firstToken.replaceAll(RegExp(r"[^\w'-]"), '');
       if (word.isNotEmpty) {
         // Best-effort dictionary lookup. Never throws — falls back to a
@@ -418,20 +417,20 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
         }
 
         final entry = VocabularyWord(
-          id:              const Uuid().v4(),
-          word:            word,
-          meaning:         summary,
-          phonetic:        dict?.phonetic,
-          meaningsByPos:   dict?.meaningsByPos ?? const {},
+          id: const Uuid().v4(),
+          word: word,
+          meaning: summary,
+          phonetic: dict?.phonetic,
+          meaningsByPos: dict?.meaningsByPos ?? const {},
           exampleSentence: dict?.exampleSentence,
-          examples:        dict?.examples ?? const [],
-          synonyms:        dict?.synonyms ?? const [],
-          antonyms:        dict?.antonyms ?? const [],
-          personalNote:    personalNote,
+          examples: dict?.examples ?? const [],
+          synonyms: dict?.synonyms ?? const [],
+          antonyms: dict?.antonyms ?? const [],
+          personalNote: personalNote,
           sourceBookTitle: bookTitle,
-          sourceBookId:    bookId,
-          sourcePage:      pageNumber,
-          savedAt:         DateTime.now(),
+          sourceBookId: bookId,
+          sourcePage: pageNumber,
+          savedAt: DateTime.now(),
         );
         await _repo.saveVocabWord(entry);
         state = state.copyWith(vocabulary: [entry, ...state.vocabulary]);
@@ -439,12 +438,12 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
     } else if (type == HighlightType.idea) {
       // Auto-add to knowledge vault as a lesson note
       final note = KnowledgeNoteModel(
-        id:        const Uuid().v4(),
-        bookId:    bookId,
+        id: const Uuid().v4(),
+        bookId: bookId,
         bookTitle: bookTitle,
-        content:   content,
-        type:      KnowledgeNoteType.lesson,
-        tags:      ['idea', 'reading'],
+        content: content,
+        type: KnowledgeNoteType.lesson,
+        tags: ['idea', 'reading'],
         createdAt: DateTime.now(),
       );
       await _repo.saveKnowledgeNote(note);
@@ -481,13 +480,9 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
       createdAt: DateTime.now(),
     );
     await _repo.saveKnowledgeNote(note);
-    state = state.copyWith(
-      allNotes: [note, ...state.allNotes],
-    );
+    state = state.copyWith(allNotes: [note, ...state.allNotes]);
 
-    await TrackingService.record(TrackingFeature.reading, {
-      'notes': 1,
-    });
+    await TrackingService.record(TrackingFeature.reading, {'notes': 1});
   }
 
   /// Save or update the user's personal reflection on a knowledge note.
@@ -544,21 +539,19 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
     int? sourcePage,
   }) async {
     final entry = VocabularyWord(
-      id:              const Uuid().v4(),
-      word:            word.trim(),
-      meaning:         meaning.trim(),
+      id: const Uuid().v4(),
+      word: word.trim(),
+      meaning: meaning.trim(),
       exampleSentence: exampleSentence?.trim(),
       sourceBookTitle: sourceBookTitle,
-      sourceBookId:    sourceBookId,
-      sourcePage:      sourcePage,
-      savedAt:         DateTime.now(),
+      sourceBookId: sourceBookId,
+      sourcePage: sourcePage,
+      savedAt: DateTime.now(),
     );
     await _repo.saveVocabWord(entry);
     state = state.copyWith(vocabulary: [entry, ...state.vocabulary]);
 
-    await TrackingService.record(TrackingFeature.reading, {
-      'vocab': 1,
-    });
+    await TrackingService.record(TrackingFeature.reading, {'vocab': 1});
   }
 
   /// Re-fetch the dictionary entry for an existing vocab word. Useful when
@@ -585,8 +578,9 @@ class ReadingViewModel extends StateNotifier<ReadingState> {
     );
     await _repo.saveVocabWord(refreshed);
     state = state.copyWith(
-      vocabulary:
-          state.vocabulary.map((w) => w.id == id ? refreshed : w).toList(),
+      vocabulary: state.vocabulary
+          .map((w) => w.id == id ? refreshed : w)
+          .toList(),
     );
     return true;
   }
@@ -646,5 +640,5 @@ final readingRepositoryProvider = Provider<ReadingRepository>(
 
 final readingViewModelProvider =
     StateNotifierProvider<ReadingViewModel, ReadingState>(
-  (ref) => ReadingViewModel(ref.read(readingRepositoryProvider)),
-);
+      (ref) => ReadingViewModel(ref.read(readingRepositoryProvider)),
+    );

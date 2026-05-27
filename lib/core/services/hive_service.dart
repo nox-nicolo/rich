@@ -2,6 +2,7 @@
 
 import 'package:hive_flutter/hive_flutter.dart';
 import '../constants/hive_boxes.dart';
+import 'app_storage_service.dart';
 
 class HiveService {
   HiveService._();
@@ -11,7 +12,9 @@ class HiveService {
   static Future<void> init() async {
     if (_initialized) return;
 
-    await Hive.initFlutter();
+    final hiveDir = await AppStorageService.hiveDirectory();
+    await AppStorageService.migrateLegacyHiveFiles(hiveDir);
+    Hive.init(hiveDir.path);
 
     // Register TypeAdapters here as features grow:
     // Hive.registerAdapter(MeditationSessionAdapter());
@@ -41,6 +44,7 @@ class HiveService {
       Hive.openBox<dynamic>(HiveBoxes.monthlyReports),
       Hive.openBox<dynamic>(HiveBoxes.milestones),
       Hive.openBox<dynamic>(HiveBoxes.aiMentor),
+      Hive.openBox<dynamic>(HiveBoxes.syncMetadata),
     ]);
 
     _initialized = true;

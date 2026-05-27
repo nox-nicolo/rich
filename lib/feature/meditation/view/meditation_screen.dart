@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+import '../../../core/services/meditation_frequency_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -36,10 +38,7 @@ class MeditationScreen extends ConsumerWidget {
           if (state.completedToday)
             Padding(
               padding: const EdgeInsets.only(right: AppSpacing.lg),
-              child: _StatusChip(
-                label: 'GATE OPEN',
-                color: AppColors.success,
-              ),
+              child: _StatusChip(label: 'GATE OPEN', color: AppColors.success),
             ),
         ],
       ),
@@ -51,8 +50,8 @@ class MeditationScreen extends ConsumerWidget {
               ),
             )
           : state.hasActiveSession
-              ? _ActiveSessionView(state: state)
-              : _IdleView(state: state),
+          ? _ActiveSessionView(state: state)
+          : _IdleView(state: state),
     );
   }
 }
@@ -85,9 +84,7 @@ class _IdleView extends ConsumerWidget {
                 onSelect: vm.selectMood,
               ),
               const SizedBox(height: AppSpacing.xl),
-              ReadinessIndicatorWidget(
-                completedToday: state.completedToday,
-              ),
+              ReadinessIndicatorWidget(completedToday: state.completedToday),
               const SizedBox(height: AppSpacing.xl),
               const RichSectionHeader(title: 'SELECT SESSION'),
               ...MeditationType.values.map(
@@ -105,8 +102,7 @@ class _IdleView extends ConsumerWidget {
                 const RichSectionHeader(title: 'TODAY'),
                 ...state.todaySessions.reversed.map(
                   (s) => Padding(
-                    padding:
-                        const EdgeInsets.only(bottom: AppSpacing.xs + 2),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
                     child: SessionLogTile(session: s),
                   ),
                 ),
@@ -125,14 +121,38 @@ class _ActiveSessionView extends ConsumerStatefulWidget {
   const _ActiveSessionView({required this.state});
 
   @override
-  ConsumerState<_ActiveSessionView> createState() =>
-      _ActiveSessionViewState();
+  ConsumerState<_ActiveSessionView> createState() => _ActiveSessionViewState();
 }
 
 class _ActiveSessionViewState extends ConsumerState<_ActiveSessionView> {
   @override
+  void initState() {
+    super.initState();
+    WakelockPlus.enable();
+    _syncFrequency(widget.state);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActiveSessionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncFrequency(widget.state);
+  }
+
+  @override
   void dispose() {
+    MeditationFrequencyService.instance.stop();
+    WakelockPlus.disable();
     super.dispose();
+  }
+
+  void _syncFrequency(MeditationState state) {
+    final session = state.activeSession;
+    if (session == null || !state.timerRunning) {
+      MeditationFrequencyService.instance.stop();
+      return;
+    }
+
+    MeditationFrequencyService.instance.play(session.type.frequencyHz);
   }
 
   @override
@@ -141,8 +161,8 @@ class _ActiveSessionViewState extends ConsumerState<_ActiveSessionView> {
     final vm = ref.read(meditationViewModelProvider.notifier);
     final session = state.activeSession!;
 
-    final progress = 1.0 -
-        (state.timerSeconds / session.durationSeconds).clamp(0.0, 1.0);
+    final progress =
+        1.0 - (state.timerSeconds / session.durationSeconds).clamp(0.0, 1.0);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -155,6 +175,11 @@ class _ActiveSessionViewState extends ConsumerState<_ActiveSessionView> {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(session.type.sublabel, style: AppTypography.body),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            session.type.frequencyLabel,
+            style: AppTypography.caption.copyWith(color: AppColors.textMuted),
+          ),
           const SizedBox(height: AppSpacing.x5l),
           _TimerRing(
             progress: progress,
@@ -190,8 +215,7 @@ class _ActiveSessionViewState extends ConsumerState<_ActiveSessionView> {
             onPressed: vm.cancelSession,
             child: Text(
               'CANCEL SESSION',
-              style: AppTypography.label
-                  .copyWith(color: AppColors.textMuted),
+              style: AppTypography.label.copyWith(color: AppColors.textMuted),
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -310,9 +334,7 @@ class _TimerRing extends StatelessWidget {
               value: progress,
               strokeWidth: 1.5,
               backgroundColor: AppColors.surfaceVar,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.accent,
-              ),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.accent),
             ),
           ),
           Text(
@@ -386,10 +408,7 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
         border: Border.all(color: color.withValues(alpha: 0.4), width: 0.5),
       ),
-      child: Text(
-        label,
-        style: AppTypography.chip.copyWith(color: color),
-      ),
+      child: Text(label, style: AppTypography.chip.copyWith(color: color)),
     );
   }
 }

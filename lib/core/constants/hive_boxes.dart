@@ -25,4 +25,31 @@ class HiveBoxes {
   static const String monthlyReports = 'monthly_reports';
   static const String milestones = 'milestones';
   static const String aiMentor = 'ai_mentor';
+  static const String syncMetadata = 'sync_metadata';
+
+  static const List<String> all = [
+    routines,
+    streaks,
+    lockStates,
+    tradingNotes,
+    bettingLogs,
+    readingProgress,
+    writingEntries,
+    newsCache,
+    dashboardSummary,
+    overlayCaptures,
+    rulesCache,
+    workTasks,
+    habits,
+    highlights,
+    knowledgeVault,
+    userPreferences,
+    financeLogs,
+    security,
+    dailyRecords,
+    monthlyReports,
+    milestones,
+    aiMentor,
+    syncMetadata,
+  ];
 }

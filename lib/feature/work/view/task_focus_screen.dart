@@ -27,11 +27,13 @@ class _TaskFocusScreenState extends ConsumerState<TaskFocusScreen> {
   void initState() {
     super.initState();
     // Force black system UI to match the screen
-    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-      statusBarColor: Colors.black,
-      systemNavigationBarColor: Colors.black,
-      statusBarIconBrightness: Brightness.light,
-    ));
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.black,
+        systemNavigationBarColor: Colors.black,
+        statusBarIconBrightness: Brightness.light,
+      ),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(workViewModelProvider.notifier).markTaskStarted(widget.taskId);
@@ -49,14 +51,16 @@ class _TaskFocusScreenState extends ConsumerState<TaskFocusScreen> {
   }
 
   void _tick({bool playSound = true}) {
-    final task = ref.read(workViewModelProvider.notifier).taskById(widget.taskId);
+    final task = ref
+        .read(workViewModelProvider.notifier)
+        .taskById(widget.taskId);
     final end = task?.scheduledEnd;
     if (end == null) {
       setState(() => _remaining = Duration.zero);
       return;
     }
     final now = DateTime.now();
-    final next = end.isAfter(now) ? end.difference(now) : Duration.zero;
+    final next = end.difference(now);
     setState(() {
       _remaining = next;
     });
@@ -229,13 +233,17 @@ class _TaskFocusScreenState extends ConsumerState<TaskFocusScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Task not found',
-                style: TextStyle(color: Colors.white54, fontSize: 14)),
+            const Text(
+              'Task not found',
+              style: TextStyle(color: Colors.white54, fontSize: 14),
+            ),
             const SizedBox(height: 16),
             TextButton(
               onPressed: () => context.go('/work'),
-              child: const Text('BACK',
-                  style: TextStyle(color: Colors.white, letterSpacing: 2)),
+              child: const Text(
+                'BACK',
+                style: TextStyle(color: Colors.white, letterSpacing: 2),
+              ),
             ),
           ],
         ),
