@@ -5,8 +5,8 @@
 // The retention policy:
 //
 //   • Today:           live from each feature's own state.
-//   • Yesterday → 35d: DailyRecord entries in the `daily_records` box.
-//   • Older than 35d:  Folded into a MonthlyReport in the `monthly_reports`
+//   • Last 25 days:    DailyRecord entries in the `daily_records` box.
+//   • Older than 25d:  Folded into a MonthlyReport in the `monthly_reports`
 //                      box, per-feature summed — then the dailies are
 //                      deleted.
 //
@@ -22,7 +22,7 @@ import 'tracking_feature.dart';
 class TrackingService {
   TrackingService._();
 
-  static const int retentionDays = 24;
+  static const int retentionDays = 25;
 
   // ── Recording ──────────────────────────────────────────────────────────
 
@@ -57,17 +57,13 @@ class TrackingService {
     }
 
     final record = DailyRecord(
-      feature:   feature,
-      date:      day,
-      data:      merged,
+      feature: feature,
+      date: day,
+      data: merged,
       updatedAt: DateTime.now(),
     );
 
-    await HiveService.put(
-      HiveBoxes.dailyRecords,
-      key,
-      record.toMap(),
-    );
+    await HiveService.put(HiveBoxes.dailyRecords, key, record.toMap());
   }
 
   /// Overwrite only the given keys in today's record, preserving all other
@@ -88,17 +84,13 @@ class TrackingService {
     merged.addAll(keys);
 
     final record = DailyRecord(
-      feature:   feature,
-      date:      day,
-      data:      merged,
+      feature: feature,
+      date: day,
+      data: merged,
       updatedAt: DateTime.now(),
     );
 
-    await HiveService.put(
-      HiveBoxes.dailyRecords,
-      key,
-      record.toMap(),
-    );
+    await HiveService.put(HiveBoxes.dailyRecords, key, record.toMap());
   }
 
   /// Replace today's record wholesale (used for snapshots like end-of-day
@@ -112,17 +104,13 @@ class TrackingService {
     final key = DailyRecord.composeKey(feature, day);
 
     final record = DailyRecord(
-      feature:   feature,
-      date:      day,
-      data:      Map<String, dynamic>.from(data),
+      feature: feature,
+      date: day,
+      data: Map<String, dynamic>.from(data),
       updatedAt: DateTime.now(),
     );
 
-    await HiveService.put(
-      HiveBoxes.dailyRecords,
-      key,
-      record.toMap(),
-    );
+    await HiveService.put(HiveBoxes.dailyRecords, key, record.toMap());
   }
 
   // ── Reading ────────────────────────────────────────────────────────────
@@ -169,7 +157,7 @@ class TrackingService {
   /// app launch.
   static Future<RetentionResult> runRetention() async {
     final cutoff = _localMidnight(
-      DateTime.now().subtract(const Duration(days: retentionDays)),
+      DateTime.now().subtract(const Duration(days: retentionDays - 1)),
     );
 
     final expired = _allDailies()
@@ -193,11 +181,7 @@ class TrackingService {
         report = report.mergeFeature(r.feature, r.data);
       }
 
-      await HiveService.put(
-        HiveBoxes.monthlyReports,
-        ym,
-        report.toMap(),
-      );
+      await HiveService.put(HiveBoxes.monthlyReports, ym, report.toMap());
     }
 
     final dailyBox = HiveService.box(HiveBoxes.dailyRecords);
@@ -206,7 +190,7 @@ class TrackingService {
     }
 
     return RetentionResult(
-      foldedCount:   expired.length,
+      foldedCount: expired.length,
       monthsTouched: byMonth.length,
     );
   }

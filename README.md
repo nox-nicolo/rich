@@ -48,3 +48,30 @@ of these messages:
   enable anonymous sign-ins in Supabase Auth and launch with
   `--dart-define=SUPABASE_AUTO_ANON_AUTH=true`.
 - `Finance sync completed`: upload/download reached Supabase.
+
+## Reports And Mentor Reviews
+
+The Reports screen keeps recent history in two layers:
+
+- Daily records stay available for the last 25 days.
+- Records older than 25 days are folded into monthly summaries in the
+  `monthly_reports` Hive box.
+
+Monthly reports preserve feature totals and item lists, including work tasks,
+meetings, finance totals, reading pages, writing words, and focus time. The
+Monthly tab shows a quick mentor read immediately, then the `AI MENTOR REVIEW`
+button sends a compact monthly brief plus the current mentor context to the
+existing text AI service. That response is meant to read like a practical mentor
+review: what worked, what leaked, one rule for next month, and one move for
+today.
+
+The AI route uses `AiLessonService`, which can call Pollinations with an
+optional `POLLINATIONS_API_KEY` dart define:
+
+```sh
+flutter run --dart-define=POLLINATIONS_API_KEY=YOUR_KEY
+```
+
+Without that key, the app falls back to the configured no-key text route when
+available. If the service is unreachable, the monthly report still shows the
+local summary and raw recorded data.

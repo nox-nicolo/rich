@@ -55,7 +55,7 @@ class MentorViewModel extends StateNotifier<MentorState> {
     if (_repo.loadLastMorningKey() != today && now.hour >= 6) {
       await _repo.saveLastMorningKey(today);
       await sendSystemPrompt(
-        'Start the daily morning check-in. Read yesterday from context and ask why the specific missed items happened. Do not be soft.',
+        'Start the daily morning check-in. Read yesterday from context, choose the most important gap, and speak like a real mentor who is firm but still on his side.',
         includeHistory: false,
       );
     }

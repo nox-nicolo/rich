@@ -17,6 +17,8 @@ import '../../../core/tracking/model/daily_record.dart';
 import '../../../core/tracking/model/monthly_report.dart';
 import '../../../core/tracking/tracking_feature.dart';
 import '../../../core/tracking/tracking_service.dart';
+import '../../mentor/service/mentor_ai_service.dart';
+import '../../mentor/service/mentor_context_service.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -332,7 +334,7 @@ class _MonthlyTab extends StatelessWidget {
       return _EmptyState(
         icon: Icons.calendar_month_outlined,
         title: 'No monthly reports yet',
-        subtitle: 'Reports are generated after daily records exceed 35 days',
+        subtitle: 'Reports are generated after daily records exceed 25 days',
       );
     }
 
@@ -367,6 +369,9 @@ class _MonthCard extends StatefulWidget {
 
 class _MonthCardState extends State<_MonthCard> {
   bool _expanded = false;
+  bool _loadingMentor = false;
+  String? _mentorInsight;
+  String? _mentorError;
 
   @override
   void initState() {
@@ -377,7 +382,7 @@ class _MonthCardState extends State<_MonthCard> {
   @override
   Widget build(BuildContext context) {
     final displayMonth = _formatYearMonth(widget.report.yearMonth);
-    final featureCount = widget.report.byFeature.length;
+    final featureCount = widget.report.featureCount;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
@@ -479,6 +484,13 @@ class _MonthCardState extends State<_MonthCard> {
                 ),
               )
             else ...[
+              _MonthlySignalStrip(report: widget.report),
+              _MentorInsightPanel(
+                insight: _mentorInsight,
+                error: _mentorError,
+                isLoading: _loadingMentor,
+                onGenerate: _generateMentorInsight,
+              ),
               const SizedBox(height: 6),
               ...List.generate(widget.report.byFeature.entries.length, (i) {
                 final e = widget.report.byFeature.entries.elementAt(i);
@@ -521,6 +533,261 @@ class _MonthCardState extends State<_MonthCard> {
     final m = int.tryParse(parts[1]);
     if (m == null || m < 1 || m > 12) return ym;
     return '${months[m]} ${parts[0]}';
+  }
+
+  Future<void> _generateMentorInsight() async {
+    if (_loadingMentor) return;
+    setState(() {
+      _loadingMentor = true;
+      _mentorError = null;
+    });
+
+    try {
+      final snapshot = MentorContextService().build();
+      final insight = await MentorAiService.instance.monthlyReportReview(
+        report: widget.report,
+        context: snapshot,
+      );
+      if (!mounted) return;
+      setState(() => _mentorInsight = insight);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _mentorError = e.toString());
+    } finally {
+      if (mounted) setState(() => _loadingMentor = false);
+    }
+  }
+}
+
+class _MonthlySignalStrip extends StatelessWidget {
+  final MonthlyReport report;
+
+  const _MonthlySignalStrip({required this.report});
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = <_SignalChipData>[
+      _SignalChipData(
+        icon: Icons.check_circle_outline,
+        label: 'Done',
+        value: '${report.tasksCompleted}',
+      ),
+      _SignalChipData(
+        icon: Icons.timer_outlined,
+        label: 'Focus',
+        value: _fmtDuration(report.focusSeconds),
+      ),
+      _SignalChipData(
+        icon: Icons.menu_book_outlined,
+        label: 'Pages',
+        value: '${report.pagesRead}',
+      ),
+      _SignalChipData(
+        icon: Icons.edit_note_outlined,
+        label: 'Words',
+        value: '${report.wordsWritten}',
+      ),
+      _SignalChipData(
+        icon: Icons.savings_outlined,
+        label: 'Kept',
+        value: '${_fmtThousands(report.financeKept)} TZS',
+      ),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _localMentorRead(report),
+            style: AppTypography.body.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: 13,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: chips.map((c) => _SignalChip(data: c)).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _localMentorRead(MonthlyReport report) {
+    if (report.tasksPending > 0 || report.tasksBlocked > 0) {
+      return 'Mentor read: the month has useful work logged, but carry-over is '
+          'visible. Start by protecting completion, not adding more plans.';
+    }
+    if (report.financeExpense > report.financeIncome &&
+        report.financeIncome > 0) {
+      return 'Mentor read: money leaked harder than it came in. Next month '
+          'needs tighter spending rules before bigger goals.';
+    }
+    if (report.focusSeconds > 0 || report.tasksCompleted > 0) {
+      return 'Mentor read: there is real execution here. The next upgrade is '
+          'consistency across more features, not one strong corner.';
+    }
+    return 'Mentor read: this report has thin evidence. Record the daily work '
+        'so the month can tell the truth clearly.';
+  }
+}
+
+class _SignalChipData {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _SignalChipData({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+}
+
+class _SignalChip extends StatelessWidget {
+  final _SignalChipData data;
+
+  const _SignalChip({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVar,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.border, width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(data.icon, size: 13, color: AppColors.accent),
+          const SizedBox(width: 6),
+          Text(
+            '${data.label}: ',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textMuted,
+              fontSize: 10,
+            ),
+          ),
+          Text(
+            data.value,
+            style: AppTypography.mono.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MentorInsightPanel extends StatelessWidget {
+  final String? insight;
+  final String? error;
+  final bool isLoading;
+  final VoidCallback onGenerate;
+
+  const _MentorInsightPanel({
+    required this.insight,
+    required this.error,
+    required this.isLoading,
+    required this.onGenerate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.accent.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(
+            color: AppColors.accent.withValues(alpha: 0.18),
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.psychology_alt_outlined,
+                  size: 15,
+                  color: AppColors.accent,
+                ),
+                const SizedBox(width: 7),
+                Text(
+                  'AI MENTOR REVIEW',
+                  style: AppTypography.label.copyWith(
+                    color: AppColors.accent,
+                    fontSize: 10,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: isLoading ? null : onGenerate,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    insight == null ? 'GENERATE' : 'REFRESH',
+                    style: AppTypography.chip.copyWith(fontSize: 9),
+                  ),
+                ),
+              ],
+            ),
+            if (isLoading) ...[
+              const SizedBox(height: 10),
+              const LinearProgressIndicator(minHeight: 2),
+            ] else if (error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Could not reach the mentor API: $error',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.warning,
+                  height: 1.35,
+                ),
+              ),
+            ] else if (insight != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                insight!,
+                style: AppTypography.body.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  height: 1.45,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 8),
+              Text(
+                'Generate a mentor-side monthly recommendation from this '
+                'report, current streaks, savings, and recent patterns.',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 

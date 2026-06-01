@@ -141,7 +141,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           _SettingTile(
             icon: Icons.insights_outlined,
             title: 'Reports',
-            subtitle: 'Last 35 days + monthly summaries',
+            subtitle: 'Last 25 days + monthly summaries',
             onTap: () => context.push(RouteNames.reports),
           ),
 

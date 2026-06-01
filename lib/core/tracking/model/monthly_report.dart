@@ -2,7 +2,7 @@
 //
 // Monthly aggregation of daily records across every feature for a given
 // local month (YYYY-MM). Created by the retention sweep once dailies for
-// that month exceed the 35-day window and are being folded away.
+// that month exceed the 25-day window and are being folded away.
 //
 // `byFeature[featureKey]` holds the summed data map for that feature's
 // daily records in the month. Numeric fields are summed; non-numeric
@@ -25,8 +25,75 @@ class MonthlyReport {
 
   Map<String, dynamic>? featureTotals(TrackingFeature f) => byFeature[f.key];
 
-  int get year  => int.parse(yearMonth.split('-')[0]);
+  int get year => int.parse(yearMonth.split('-')[0]);
   int get month => int.parse(yearMonth.split('-')[1]);
+  int get featureCount => byFeature.length;
+
+  int get tasksCompleted =>
+      _intFor(TrackingFeature.work, 'tasksCompleted') +
+      _intFor(TrackingFeature.work, 'tasksDone');
+  int get tasksPending => _intFor(TrackingFeature.work, 'tasksPending');
+  int get tasksBlocked => _intFor(TrackingFeature.work, 'tasksBlocked');
+  int get focusSeconds => _intFor(TrackingFeature.work, 'totalSeconds');
+  int get meetingMinutes =>
+      _intFor(TrackingFeature.work, 'meetingActualMinutes');
+
+  int get pagesRead =>
+      _intFor(TrackingFeature.reading, 'pages') +
+      _intFor(TrackingFeature.reading, 'pagesRead');
+  int get wordsWritten =>
+      _intFor(TrackingFeature.writing, 'words') +
+      _intFor(TrackingFeature.writing, 'wordsWritten');
+
+  double get financeIncome => _doubleFor(TrackingFeature.finance, 'income');
+  double get financeExpense => _doubleFor(TrackingFeature.finance, 'expense');
+  double get financeKept => _doubleFor(TrackingFeature.finance, 'kept');
+  double get financePnl => _doubleFor(TrackingFeature.finance, 'pnl');
+
+  List<String> mentorSignals() {
+    final signals = <String>[];
+    if (tasksCompleted > 0) signals.add('$tasksCompleted work tasks finished');
+    if (tasksPending > 0) signals.add('$tasksPending tasks carried over');
+    if (tasksBlocked > 0) signals.add('$tasksBlocked tasks blocked');
+    if (focusSeconds > 0) {
+      signals.add('${_formatHours(focusSeconds)} focused');
+    }
+    if (meetingMinutes > 0) signals.add('$meetingMinutes meeting minutes');
+    if (pagesRead > 0) signals.add('$pagesRead pages read');
+    if (wordsWritten > 0) signals.add('$wordsWritten words written');
+    if (financeIncome > 0 || financeExpense > 0 || financeKept > 0) {
+      signals.add(
+        'money: income ${financeIncome.toStringAsFixed(0)}, '
+        'expense ${financeExpense.toStringAsFixed(0)}, '
+        'kept ${financeKept.toStringAsFixed(0)}',
+      );
+    }
+    if (signals.isEmpty) {
+      signals.add('No strong signal yet; this month needs more daily records.');
+    }
+    return signals;
+  }
+
+  String mentorBrief() {
+    final features = byFeature.keys.join(', ');
+    return '''
+MONTH: $yearMonth
+FEATURES RECORDED: ${features.isEmpty ? 'none' : features}
+TASKS COMPLETED: $tasksCompleted
+TASKS PENDING: $tasksPending
+TASKS BLOCKED: $tasksBlocked
+FOCUS TIME: ${_formatHours(focusSeconds)}
+MEETING TIME: $meetingMinutes minutes
+PAGES READ: $pagesRead
+WORDS WRITTEN: $wordsWritten
+FINANCE INCOME: ${financeIncome.toStringAsFixed(0)}
+FINANCE EXPENSE: ${financeExpense.toStringAsFixed(0)}
+FINANCE KEPT: ${financeKept.toStringAsFixed(0)}
+FINANCE PNL: ${financePnl.toStringAsFixed(0)}
+MENTOR SIGNALS:
+${mentorSignals().map((s) => '- $s').join('\n')}
+''';
+  }
 
   MonthlyReport mergeFeature(
     TrackingFeature feature,
@@ -107,5 +174,24 @@ class MonthlyReport {
       createdAt: now,
       updatedAt: now,
     );
+  }
+
+  int _intFor(TrackingFeature feature, String key) =>
+      _numFor(feature, key).toInt();
+
+  double _doubleFor(TrackingFeature feature, String key) =>
+      _numFor(feature, key).toDouble();
+
+  num _numFor(TrackingFeature feature, String key) {
+    final value = byFeature[feature.key]?[key];
+    if (value is num) return value;
+    return num.tryParse('$value') ?? 0;
+  }
+
+  String _formatHours(int seconds) {
+    if (seconds <= 0) return '0h';
+    final hours = seconds / 3600;
+    if (hours >= 10) return '${hours.round()}h';
+    return '${hours.toStringAsFixed(1)}h';
   }
 }
